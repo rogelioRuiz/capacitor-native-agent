@@ -464,7 +464,7 @@ fn create_driver(provider: &str, api_key: &str) -> Result<Box<dyn LlmDriver>, Na
 
 fn default_model(provider: &str) -> &str {
     match provider {
-        "anthropic" => "claude-sonnet-4-5",
+        "anthropic" => "claude-haiku-4-5-20251001",
         "openrouter" => "anthropic/claude-sonnet-4.5",
         "openai" => "gpt-4o",
         _ => "claude-sonnet-4-5",
