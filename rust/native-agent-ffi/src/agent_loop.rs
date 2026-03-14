@@ -46,6 +46,9 @@ pub struct AgentLoopContext<'a> {
     pub mcp_tools: Arc<Mutex<Vec<ToolDefinition>>>,
     pub mcp_pending: Arc<Mutex<HashMap<String, oneshot::Sender<McpToolResult>>>>,
     pub memory_provider: Option<Arc<dyn MemoryProvider>>,
+    /// When true, suppress the `user_message` event for the prompt.
+    /// Used by skill kickoffs to hide the internal instruction from the chat UI.
+    pub skip_user_echo: bool,
 }
 
 /// Run one agent turn (prompt -> LLM -> tools -> ... -> done).
@@ -75,15 +78,25 @@ pub async fn run_agent_turn(
 
     if !ctx.params.prompt.trim().is_empty() {
         messages.push(Message::user(&ctx.params.prompt));
-        event_bus::emit(
-            callback,
-            "user_message",
-            &serde_json::json!({
-                "text": ctx.params.prompt,
-                "sessionKey": ctx.params.session_key,
-            }),
-        );
+        if !ctx.skip_user_echo {
+            event_bus::emit(
+                callback,
+                "user_message",
+                &serde_json::json!({
+                    "text": ctx.params.prompt,
+                    "sessionKey": ctx.params.session_key,
+                }),
+            );
+        }
     }
+
+    // Parse allowed tools for skill sessions — used to skip approval
+    let skill_tools: Option<HashSet<String>> = ctx
+        .params
+        .allowed_tools_json
+        .as_deref()
+        .and_then(|json| serde_json::from_str::<Vec<String>>(json).ok())
+        .map(|v| v.into_iter().collect());
 
     let mut turn_count: u32 = 0;
 
@@ -142,7 +155,7 @@ pub async fn run_agent_turn(
             ensure_not_aborted(&ctx.abort_flag).await?;
             event_bus::emit_tool_use(callback, &tool_call.name, &tool_call.id, &tool_call.input);
 
-            if requires_approval(&tool_call.name) {
+            if requires_approval(&tool_call.name, skill_tools.as_ref()) {
                 let approval = wait_for_approval(
                     callback,
                     &tool_call.name,
@@ -370,7 +383,14 @@ async fn wait_for_mcp_tool_result(
     }
 }
 
-fn requires_approval(tool_name: &str) -> bool {
+fn requires_approval(tool_name: &str, skill_tools: Option<&HashSet<String>>) -> bool {
+    // Skill tools never need approval (matches old JS agent behavior)
+    if let Some(allowed) = skill_tools {
+        if allowed.contains(tool_name) {
+            return false;
+        }
+    }
+
     if !tool_runner::is_builtin_tool(tool_name) {
         return true;
     }

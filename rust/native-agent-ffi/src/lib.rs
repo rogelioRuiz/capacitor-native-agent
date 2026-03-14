@@ -538,7 +538,10 @@ impl NativeAgentHandle {
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("skill-{}", uuid::Uuid::new_v4()));
 
-        let params = self.prepare_params(types::SendMessageParams {
+        // Skills bypass prepare_params entirely — no workspace system prompt,
+        // no IDENTITY.md, no MEMORY.md. This matches the old JS agent behavior
+        // where skills ran in a completely isolated Agent instance.
+        let params = types::SendMessageParams {
             prompt,
             session_key: session_key.clone(),
             model: launch
@@ -583,7 +586,7 @@ impl NativeAgentHandle {
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string())
                 }),
-        })?;
+        };
 
         let skill_abort_flag = Arc::new(Mutex::new(false));
         self.runtime.block_on(async {
@@ -605,8 +608,10 @@ impl NativeAgentHandle {
         let mcp_pending = self.mcp_pending.clone();
         let memory_provider = self.memory_provider_clone();
         let active_skills = self.active_skills.clone();
+        let current_session = self.current_session.clone();
         let skill_id_for_task = skill_id.clone();
         let params_for_task = params.clone();
+        let session_state = self.session_state_from_params(&params, vec![]);
 
         self.runtime.spawn(async move {
             let start_time = chrono::Utc::now().timestamp_millis();
@@ -623,6 +628,7 @@ impl NativeAgentHandle {
                 mcp_tools,
                 mcp_pending,
                 memory_provider: memory_provider.clone(),
+                skip_user_echo: true, // Skill kickoff — hide internal instruction from chat
             })
             .await;
 
@@ -639,8 +645,24 @@ impl NativeAgentHandle {
                             Some(&turn_result.usage),
                         );
                     }
+
+                    // Store session so follow_up() works for skill multi-turn.
+                    // This preserves system_prompt, allowed_tools_json, and messages
+                    // across turns — matching the old JS agent's persistent _skillAgent.
+                    let mut next_session = session_state;
+                    next_session.messages = turn_result.messages;
+                    *current_session.lock().await = Some(next_session);
+
+                    if let Some(cb) = &callback {
+                        let payload = serde_json::json!({
+                            "runId": "",
+                            "sessionKey": params_for_task.session_key,
+                            "usage": turn_result.usage,
+                        });
+                        cb.on_event("agent.completed".into(), payload.to_string());
+                    }
                 }
-                Err(_) => {
+                Err(e) => {
                     if let Ok(conn) = db::open_db(&config.db_path) {
                         let _ = db::save_session(
                             &conn,
@@ -651,6 +673,13 @@ impl NativeAgentHandle {
                             start_time,
                             None,
                         );
+                    }
+
+                    if let Some(cb) = &callback {
+                        let payload = serde_json::json!({
+                            "error": format!("{}", e),
+                        });
+                        cb.on_event("agent.error".into(), payload.to_string());
                     }
                 }
             }
@@ -781,7 +810,10 @@ impl NativeAgentHandle {
         &self,
         mut params: types::SendMessageParams,
     ) -> Result<types::SendMessageParams, NativeAgentError> {
-        if params.system_prompt.trim().is_empty() {
+        // Skills provide their own system prompt — never fall back to workspace
+        // default (IDENTITY.md, MEMORY.md, etc.). When allowed_tools_json is set,
+        // we're in skill mode and the system prompt is already correct.
+        if params.allowed_tools_json.is_none() && params.system_prompt.trim().is_empty() {
             params.system_prompt = workspace::load_system_prompt(&self.config.workspace_path)?;
         }
         Ok(params)
@@ -838,6 +870,7 @@ impl NativeAgentHandle {
                 mcp_tools,
                 mcp_pending,
                 memory_provider: memory_provider.clone(),
+                skip_user_echo: false,
             })
             .await;
 

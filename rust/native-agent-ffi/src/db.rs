@@ -1243,6 +1243,7 @@ pub async fn handle_wake(
             mcp_tools: mcp_tools.clone(),
             mcp_pending: mcp_pending.clone(),
             memory_provider: memory_provider.clone(),
+            skip_user_echo: false,
         })
         .await;
         let duration_ms = start.elapsed().as_millis() as i64;
