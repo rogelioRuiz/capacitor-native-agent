@@ -1,6 +1,6 @@
 {
   "name": "capacitor-native-agent",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Native AI agent loop for Capacitor — runs LLM completions, tool execution, and cron jobs in native Rust, enabling background execution.",
   "main": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
@@ -57,7 +57,7 @@
   },
   "peerDependencies": {
     "@capacitor/core": "^6.0.0 || ^7.0.0 || ^8.0.0",
-    "capacitor-lancedb": "^0.2.0"
+    "capacitor-lancedb": "^0.2.2"
   },
   "peerDependenciesMeta": {
     "capacitor-lancedb": {
