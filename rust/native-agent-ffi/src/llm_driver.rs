@@ -141,13 +141,15 @@ impl AnthropicDriver {
         let url = format!("{}/v1/messages", self.base_url);
         let mut builder = self.client.post(&url);
 
-        // Auth: OAuth uses Bearer + Claude Code identity, API key uses x-api-key
+        // OAuth: full Claude Code identity (must match pi-ai/anthropic.ts exactly)
         if self.is_oauth {
             builder = builder
                 .header("Authorization", format!("Bearer {}", self.api_key))
-                .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
+                .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14")
                 .header("user-agent", "claude-cli/2.1.75")
-                .header("x-app", "cli");
+                .header("x-app", "cli")
+                .header("accept", "application/json")
+                .header("anthropic-dangerous-direct-browser-access", "true");
         } else {
             builder = builder.header("x-api-key", &self.api_key);
         }
@@ -182,10 +184,26 @@ impl AnthropicDriver {
             })));
         }
 
+        // OAuth: system prompt must be array of {type:"text",text:...} objects
+        // with Claude Code identity as first element (matches pi-ai/anthropic.ts)
+        let system_value = if self.is_oauth {
+            let mut blocks = vec![
+                serde_json::json!({"type": "text", "text": "You are Claude Code, Anthropic's official CLI for Claude."}),
+            ];
+            if let Some(s) = &req.system {
+                if !s.is_empty() {
+                    blocks.push(serde_json::json!({"type": "text", "text": s}));
+                }
+            }
+            Some(serde_json::json!(blocks))
+        } else {
+            req.system.as_ref().map(|s| serde_json::json!(s))
+        };
+
         let body = ApiRequest {
             model: req.model.clone(),
             max_tokens: req.max_tokens,
-            system: req.system.clone(),
+            system: system_value,
             messages: req
                 .messages
                 .iter()
@@ -559,7 +577,7 @@ struct ApiRequest {
     model: String,
     max_tokens: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<String>,
+    system: Option<serde_json::Value>,
     messages: Vec<ApiMessage>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tools: Vec<ApiToolEntry>,

@@ -69,16 +69,6 @@ pub async fn run_agent_turn(
         .unwrap_or(default_model(provider));
     let driver = create_driver(provider, &api_key)?;
 
-    // OAuth requires Claude Code identity prefix in system prompt
-    let system_prompt = if auth.is_oauth && provider == "anthropic" {
-        format!(
-            "You are Claude Code, Anthropic's official CLI for Claude.\n\n{}",
-            ctx.params.system_prompt
-        )
-    } else {
-        ctx.params.system_prompt.clone()
-    };
-
     let max_turns = ctx.params.max_turns.unwrap_or(DEFAULT_MAX_TURNS);
     let mut messages = ctx.prior_messages.clone().unwrap_or_default();
     let mut cumulative_usage = TokenUsage::default();
@@ -116,7 +106,7 @@ pub async fn run_agent_turn(
             .await,
             max_tokens: DEFAULT_MAX_TOKENS,
             temperature: 0.0,
-            system: Some(system_prompt.clone()),
+            system: Some(ctx.params.system_prompt.clone()),
         };
 
         let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag).await?;
