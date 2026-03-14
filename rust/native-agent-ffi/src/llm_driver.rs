@@ -141,11 +141,13 @@ impl AnthropicDriver {
         let url = format!("{}/v1/messages", self.base_url);
         let mut builder = self.client.post(&url);
 
-        // Auth: OAuth uses Bearer, API key uses x-api-key
+        // Auth: OAuth uses Bearer + Claude Code identity, API key uses x-api-key
         if self.is_oauth {
             builder = builder
                 .header("Authorization", format!("Bearer {}", self.api_key))
-                .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20");
+                .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
+                .header("user-agent", "claude-cli/2.1.75")
+                .header("x-app", "cli");
         } else {
             builder = builder.header("x-api-key", &self.api_key);
         }

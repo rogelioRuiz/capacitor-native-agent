@@ -69,6 +69,16 @@ pub async fn run_agent_turn(
         .unwrap_or(default_model(provider));
     let driver = create_driver(provider, &api_key)?;
 
+    // OAuth requires Claude Code identity prefix in system prompt
+    let system_prompt = if auth.is_oauth && provider == "anthropic" {
+        format!(
+            "You are Claude Code, Anthropic's official CLI for Claude.\n\n{}",
+            ctx.params.system_prompt
+        )
+    } else {
+        ctx.params.system_prompt.clone()
+    };
+
     let max_turns = ctx.params.max_turns.unwrap_or(DEFAULT_MAX_TURNS);
     let mut messages = ctx.prior_messages.clone().unwrap_or_default();
     let mut cumulative_usage = TokenUsage::default();
@@ -106,7 +116,7 @@ pub async fn run_agent_turn(
             .await,
             max_tokens: DEFAULT_MAX_TOKENS,
             temperature: 0.0,
-            system: Some(ctx.params.system_prompt.clone()),
+            system: Some(system_prompt.clone()),
         };
 
         let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag).await?;
@@ -464,10 +474,10 @@ fn create_driver(provider: &str, api_key: &str) -> Result<Box<dyn LlmDriver>, Na
 
 fn default_model(provider: &str) -> &str {
     match provider {
-        "anthropic" => "claude-haiku-4-5-20251001",
+        "anthropic" => "claude-sonnet-4-20250514",
         "openrouter" => "anthropic/claude-sonnet-4.5",
         "openai" => "gpt-4o",
-        _ => "claude-sonnet-4-5",
+        _ => "claude-sonnet-4-20250514",
     }
 }
 

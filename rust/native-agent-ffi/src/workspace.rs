@@ -314,9 +314,9 @@ pub fn load_system_prompt(workspace_path: &str) -> Result<String, NativeAgentErr
 pub fn get_models_json(provider: &str) -> String {
     let models = match provider {
         "anthropic" => serde_json::json!([
-            {"id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5", "description": "Fast and capable", "isDefault": true},
-            {"id": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Quick and lightweight", "isDefault": false},
-            {"id": "claude-opus-4", "name": "Claude Opus 4", "description": "Most capable", "isDefault": false}
+            {"id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "description": "Fast and capable", "isDefault": true},
+            {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "description": "Quick and lightweight", "isDefault": false},
+            {"id": "claude-opus-4-20250514", "name": "Claude Opus 4", "description": "Most capable", "isDefault": false}
         ]),
         "openrouter" => serde_json::json!([
             {"id": "anthropic/claude-sonnet-4.5", "name": "Claude Sonnet 4.5", "description": "Fast and capable", "isDefault": true},
@@ -336,9 +336,9 @@ pub fn get_models_json(provider: &str) -> String {
             {"id": "o4-mini", "name": "o4 Mini", "description": "Reasoning model", "isDefault": false}
         ]),
         _ => serde_json::json!([
-            {"id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5", "description": "Fast and capable", "isDefault": true},
-            {"id": "claude-haiku-4-5", "name": "Claude Haiku 4.5", "description": "Quick and lightweight", "isDefault": false},
-            {"id": "claude-opus-4", "name": "Claude Opus 4", "description": "Most capable", "isDefault": false}
+            {"id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "description": "Fast and capable", "isDefault": true},
+            {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "description": "Quick and lightweight", "isDefault": false},
+            {"id": "claude-opus-4-20250514", "name": "Claude Opus 4", "description": "Most capable", "isDefault": false}
         ]),
     };
 
