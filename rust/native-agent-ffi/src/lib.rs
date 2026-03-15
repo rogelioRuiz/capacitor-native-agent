@@ -617,6 +617,7 @@ impl NativeAgentHandle {
         let mcp_pending = self.mcp_pending.clone();
         let memory_provider = self.memory_provider_clone();
         let active_skills = self.active_skills.clone();
+        let current_session = self.current_session.clone();
         let skill_id_for_task = skill_id.clone();
         let params_for_task = params.clone();
 
@@ -652,6 +653,20 @@ impl NativeAgentHandle {
                             Some(&turn_result.usage),
                         );
                     }
+
+                    // Store into current_session so followUp() works for skill follow-ups.
+                    // Mirrors pi-agent-core where Agent.state.messages persisted across prompt() calls.
+                    let next_session = types::SessionState {
+                        session_key: params_for_task.session_key.clone(),
+                        agent_id: skill_id_for_task.clone(),
+                        provider: params_for_task.provider.clone(),
+                        model: Some(turn_result.model.clone()),
+                        system_prompt: params_for_task.system_prompt.clone(),
+                        max_turns: params_for_task.max_turns,
+                        allowed_tools_json: params_for_task.allowed_tools_json.clone(),
+                        messages: turn_result.messages,
+                    };
+                    *current_session.lock().await = Some(next_session);
 
                     if let Some(cb) = &callback {
                         let payload = serde_json::json!({

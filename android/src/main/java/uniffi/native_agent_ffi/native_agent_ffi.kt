@@ -2904,7 +2904,11 @@ data class SendMessageParams (
     /**
      * JSON-encoded list of allowed tool names. Empty = all tools.
      */
-    var `allowedToolsJson`: kotlin.String?
+    var `allowedToolsJson`: kotlin.String?, 
+    /**
+     * JSON-encoded prior conversation messages for multi-turn sessions.
+     */
+    var `priorMessagesJson`: kotlin.String?
 ) {
     
     companion object
@@ -2923,6 +2927,7 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterString.read(buf),
             FfiConverterOptionalUInt.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
@@ -2933,7 +2938,8 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterOptionalString.allocationSize(value.`provider`) +
             FfiConverterString.allocationSize(value.`systemPrompt`) +
             FfiConverterOptionalUInt.allocationSize(value.`maxTurns`) +
-            FfiConverterOptionalString.allocationSize(value.`allowedToolsJson`)
+            FfiConverterOptionalString.allocationSize(value.`allowedToolsJson`) +
+            FfiConverterOptionalString.allocationSize(value.`priorMessagesJson`)
     )
 
     override fun write(value: SendMessageParams, buf: ByteBuffer) {
@@ -2944,6 +2950,7 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterString.write(value.`systemPrompt`, buf)
             FfiConverterOptionalUInt.write(value.`maxTurns`, buf)
             FfiConverterOptionalString.write(value.`allowedToolsJson`, buf)
+            FfiConverterOptionalString.write(value.`priorMessagesJson`, buf)
     }
 }
 
