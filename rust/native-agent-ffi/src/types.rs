@@ -30,6 +30,8 @@ pub struct SendMessageParams {
     pub max_turns: Option<u32>,
     /// JSON-encoded list of allowed tool names. Empty = all tools.
     pub allowed_tools_json: Option<String>,
+    /// JSON-encoded prior conversation messages for multi-turn sessions.
+    pub prior_messages_json: Option<String>,
 }
 
 /// Auth token result.
@@ -225,6 +227,7 @@ impl SessionState {
             system_prompt: self.system_prompt.clone(),
             max_turns: self.max_turns,
             allowed_tools_json: self.allowed_tools_json.clone(),
+            prior_messages_json: None,
         }
     }
 }

@@ -125,6 +125,7 @@ class NativeAgentPlugin : Plugin() {
             systemPrompt = call.getString("systemPrompt") ?: "",
             maxTurns = call.getInt("maxTurns")?.toUInt(),
             allowedToolsJson = call.getString("allowedToolsJson"),
+            priorMessagesJson = call.getString("priorMessagesJson"),
         )
         val runId = h.sendMessage(params)
         val ret = JSObject()

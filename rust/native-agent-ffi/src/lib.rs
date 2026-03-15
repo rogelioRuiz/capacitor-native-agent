@@ -175,9 +175,17 @@ impl NativeAgentHandle {
         params: types::SendMessageParams,
     ) -> Result<String, NativeAgentError> {
         self.reset_abort_flag(&self.abort_flag);
+        // Parse prior messages if provided (for skill follow-ups with history)
+        let prior_messages: Option<Vec<types::Message>> = params
+            .prior_messages_json
+            .as_deref()
+            .and_then(|json| serde_json::from_str(json).ok());
         let params = self.prepare_params(params)?;
-        let session_state = self.session_state_from_params(&params, vec![]);
-        self.spawn_main_turn(params, None, session_state)
+        let session_state = self.session_state_from_params(
+            &params,
+            prior_messages.clone().unwrap_or_default(),
+        );
+        self.spawn_main_turn(params, prior_messages, session_state)
     }
 
     /// Follow up on the current conversation.
@@ -586,6 +594,7 @@ impl NativeAgentHandle {
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string())
                 }),
+            prior_messages_json: None,
         };
 
         let skill_abort_flag = Arc::new(Mutex::new(false));
@@ -608,10 +617,8 @@ impl NativeAgentHandle {
         let mcp_pending = self.mcp_pending.clone();
         let memory_provider = self.memory_provider_clone();
         let active_skills = self.active_skills.clone();
-        let current_session = self.current_session.clone();
         let skill_id_for_task = skill_id.clone();
         let params_for_task = params.clone();
-        let session_state = self.session_state_from_params(&params, vec![]);
 
         self.runtime.spawn(async move {
             let start_time = chrono::Utc::now().timestamp_millis();
@@ -646,18 +653,12 @@ impl NativeAgentHandle {
                         );
                     }
 
-                    // Store session so follow_up() works for skill multi-turn.
-                    // This preserves system_prompt, allowed_tools_json, and messages
-                    // across turns — matching the old JS agent's persistent _skillAgent.
-                    let mut next_session = session_state;
-                    next_session.messages = turn_result.messages;
-                    *current_session.lock().await = Some(next_session);
-
                     if let Some(cb) = &callback {
                         let payload = serde_json::json!({
                             "runId": "",
                             "sessionKey": params_for_task.session_key,
                             "usage": turn_result.usage,
+                            "messagesJson": turn_result.messages_json,
                         });
                         cb.on_event("agent.completed".into(), payload.to_string());
                     }
@@ -897,6 +898,7 @@ impl NativeAgentHandle {
                             "runId": run_id_for_task,
                             "sessionKey": params_for_task.session_key,
                             "usage": turn_result.usage,
+                            "messagesJson": turn_result.messages_json,
                         });
                         cb.on_event("agent.completed".into(), payload.to_string());
                     }

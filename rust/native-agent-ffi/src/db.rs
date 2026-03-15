@@ -1226,6 +1226,7 @@ pub async fn handle_wake(
             }),
             max_turns: Some(10),
             allowed_tools_json: job.allowed_tools.clone(),
+            prior_messages_json: None,
         };
 
         let start_time = chrono::Utc::now().timestamp_millis();

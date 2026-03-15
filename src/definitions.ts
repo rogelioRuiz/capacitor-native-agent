@@ -27,6 +27,8 @@ export interface SendMessageParams {
   allowedToolsJson?: string
   /** JSON-encoded extra tool definitions (account tools, MCP tools) */
   extraToolsJson?: string
+  /** JSON-encoded prior conversation messages for multi-turn skill sessions */
+  priorMessagesJson?: string
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
