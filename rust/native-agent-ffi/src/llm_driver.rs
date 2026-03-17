@@ -455,7 +455,7 @@ impl StreamAccumulator {
                             input_json,
                         } => {
                             let input: serde_json::Value =
-                                serde_json::from_str(input_json).unwrap_or_default();
+                                serde_json::from_str(input_json).unwrap_or_else(|_| serde_json::json!({}));
                             on_event(StreamEvent::ToolUseEnd {
                                 id: id.clone(),
                                 name: name.clone(),
@@ -665,12 +665,16 @@ fn convert_message(msg: &Message) -> ApiMessage {
                         "type": "text",
                         "text": text,
                     })),
-                    ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({
-                        "type": "tool_use",
-                        "id": id,
-                        "name": name,
-                        "input": input,
-                    })),
+                    ContentBlock::ToolUse { id, name, input } => {
+                        // API requires input to be a dict — normalize null/non-object to {}
+                        let safe_input = if input.is_object() { input.clone() } else { serde_json::json!({}) };
+                        Some(serde_json::json!({
+                            "type": "tool_use",
+                            "id": id,
+                            "name": name,
+                            "input": safe_input,
+                        }))
+                    }
                     ContentBlock::ToolResult {
                         tool_use_id,
                         content,

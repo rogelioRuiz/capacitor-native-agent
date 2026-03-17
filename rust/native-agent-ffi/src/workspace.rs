@@ -1,4 +1,5 @@
-use crate::types::InitConfig;
+use crate::tool_runner;
+use crate::types::{InitConfig, ToolDefinition};
 use crate::NativeAgentError;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -183,23 +184,6 @@ These are SECURE REFERENCES to real values (credit cards, social security number
 - Do not attempt to decode, reverse, or manipulate the alias format
 "#;
 
-const TOOL_SUMMARIES_PROMPT: &str = r#"## Available Tools
-
-- read_file: Read file contents
-- write_file: Create or overwrite files
-- edit_file: Make precise edits to existing files
-- list_files: List directory contents
-- grep_files: Search file contents for patterns
-- find_files: Find files by glob pattern
-- execute_js: Run JavaScript in a sandbox
-- execute_python: Run Python in a sandbox
-- git_init, git_status, git_add, git_commit, git_log, git_diff: Git operations
-- cron: Schedule jobs and reminders on the device. Use this for any delayed or recurring task.
-- memory_recall, memory_store, memory_forget, memory_search, memory_get: Persistent vector memory
-
-Tool call style: do not narrate routine tool calls. Call tools directly. Narrate only for multi-step work or when the user asks.
-"#;
-
 const DEFAULT_AUTH_PROFILES: &str = r#"{
   "version": 1,
   "profiles": {},
@@ -292,7 +276,47 @@ pub fn init_default_files(config: &InitConfig) -> Result<(), NativeAgentError> {
     Ok(())
 }
 
-pub fn load_system_prompt(workspace_path: &str) -> Result<String, NativeAgentError> {
+/// Generate the "Available Tools" section of the system prompt dynamically
+/// from the actual tool definitions (builtin + MCP).
+pub fn generate_tool_summaries(tools: &[ToolDefinition]) -> String {
+    let mut builtin_lines = Vec::new();
+    let mut account_lines = Vec::new();
+
+    for tool in tools {
+        let line = format!("- {}: {}", tool.name, tool.description);
+        if tool_runner::is_builtin_tool(&tool.name) {
+            builtin_lines.push(line);
+        } else {
+            account_lines.push(line);
+        }
+    }
+
+    let mut out = String::from("## Available Tools\n");
+
+    if !builtin_lines.is_empty() {
+        out.push_str("\n### Built-in\n");
+        for line in &builtin_lines {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+
+    if !account_lines.is_empty() {
+        out.push_str("\n### Connected Accounts\n");
+        for line in &account_lines {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+
+    out.push_str("\nTool call style: do not narrate routine tool calls. Call tools directly. Narrate only for multi-step work or when the user asks.");
+    out
+}
+
+pub fn load_system_prompt(
+    workspace_path: &str,
+    tools: &[ToolDefinition],
+) -> Result<String, NativeAgentError> {
     let workspace_root = PathBuf::from(workspace_path);
     let mut sections = vec!["# Project Context".to_string()];
 
@@ -306,7 +330,7 @@ pub fn load_system_prompt(workspace_path: &str) -> Result<String, NativeAgentErr
     }
 
     sections.push(VAULT_ALIAS_PROMPT.trim().to_string());
-    sections.push(TOOL_SUMMARIES_PROMPT.trim().to_string());
+    sections.push(generate_tool_summaries(tools));
 
     Ok(format!("{}\n", sections.join("\n\n")))
 }
@@ -385,10 +409,39 @@ mod tests {
         let config = temp_config("system-prompt");
         init_default_files(&config).unwrap();
 
-        let prompt = load_system_prompt(&config.workspace_path).unwrap();
+        let prompt = load_system_prompt(&config.workspace_path, &[]).unwrap();
         assert!(prompt.contains("# Project Context"));
         assert!(prompt.contains("## AGENTS.md"));
         assert!(prompt.contains("## Vault Aliases"));
         assert!(prompt.contains("## Available Tools"));
+    }
+
+    #[test]
+    fn system_prompt_includes_mcp_tool_summaries() {
+        let config = temp_config("tool-summaries");
+        init_default_files(&config).unwrap();
+
+        let tools = vec![
+            // A builtin tool
+            ToolDefinition {
+                name: "read_file".to_string(),
+                description: "Read a file from the workspace".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+                webview_only: false,
+            },
+            // An MCP/account tool
+            ToolDefinition {
+                name: "gmail_search".to_string(),
+                description: "Search Gmail messages".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+                webview_only: true,
+            },
+        ];
+
+        let prompt = load_system_prompt(&config.workspace_path, &tools).unwrap();
+        assert!(prompt.contains("### Built-in"));
+        assert!(prompt.contains("read_file: Read a file"));
+        assert!(prompt.contains("### Connected Accounts"));
+        assert!(prompt.contains("gmail_search: Search Gmail"));
     }
 }

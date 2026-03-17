@@ -355,7 +355,10 @@ impl NativeAgentHandle {
         };
 
         let messages: Vec<types::Message> = serde_json::from_str(&messages_json)?;
-        let system_prompt = workspace::load_system_prompt(&self.config.workspace_path)?;
+        let system_prompt = workspace::load_system_prompt(
+            &self.config.workspace_path,
+            &self.merged_tools_for_prompt(),
+        )?;
 
         self.runtime.block_on(async {
             let mut current = self.current_session.lock().await;
@@ -822,6 +825,18 @@ impl NativeAgentHandle {
         });
     }
 
+    /// Build the full tool list (builtin + MCP, deduplicated) for system prompt generation.
+    fn merged_tools_for_prompt(&self) -> Vec<types::ToolDefinition> {
+        let mcp = self.runtime.block_on(async {
+            self.mcp_tools.lock().await.clone()
+        });
+        let mut all = tool_runner::get_tool_definitions(&self.config.workspace_path, None);
+        let builtin_names: std::collections::HashSet<String> =
+            all.iter().map(|t| t.name.clone()).collect();
+        all.extend(mcp.into_iter().filter(|t| !builtin_names.contains(&t.name)));
+        all
+    }
+
     fn prepare_params(
         &self,
         mut params: types::SendMessageParams,
@@ -830,7 +845,10 @@ impl NativeAgentHandle {
         // default (IDENTITY.md, MEMORY.md, etc.). When allowed_tools_json is set,
         // we're in skill mode and the system prompt is already correct.
         if params.allowed_tools_json.is_none() && params.system_prompt.trim().is_empty() {
-            params.system_prompt = workspace::load_system_prompt(&self.config.workspace_path)?;
+            params.system_prompt = workspace::load_system_prompt(
+                &self.config.workspace_path,
+                &self.merged_tools_for_prompt(),
+            )?;
         }
         Ok(params)
     }
