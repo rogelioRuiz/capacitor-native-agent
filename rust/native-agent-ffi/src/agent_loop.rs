@@ -98,6 +98,11 @@ pub async fn run_agent_turn(
         .and_then(|json| serde_json::from_str::<Vec<String>>(json).ok())
         .map(|v| v.into_iter().collect());
 
+    // Load tool permissions from DB for approval decisions (works in background without WebView)
+    let db_permissions = crate::db::open_db(&ctx.config.db_path)
+        .and_then(|conn| crate::db::load_tool_permissions_map(&conn))
+        .unwrap_or_default();
+
     let mut turn_count: u32 = 0;
 
     loop {
@@ -155,7 +160,27 @@ pub async fn run_agent_turn(
             ensure_not_aborted(&ctx.abort_flag).await?;
             event_bus::emit_tool_use(callback, &tool_call.name, &tool_call.id, &tool_call.input);
 
-            if requires_approval(&tool_call.name, skill_tools.as_ref()) {
+            // Check if tool is disabled in permissions DB
+            if let Some((_, false)) = db_permissions.get(&tool_call.name) {
+                let content = format!("Tool \"{}\" is disabled in tool settings.", tool_call.name);
+                event_bus::emit_tool_result(
+                    callback,
+                    &tool_call.name,
+                    &tool_call.id,
+                    &serde_json::json!({ "content": content, "isError": true }),
+                );
+                tool_results.push(ContentBlock::ToolResult {
+                    tool_use_id: tool_call.id.clone(),
+                    content,
+                    is_error: true,
+                });
+                continue;
+            }
+
+            if requires_approval(&tool_call.name, skill_tools.as_ref(), &db_permissions) {
+                let require_biometric = db_permissions.get(&tool_call.name)
+                    .map(|(p, _)| p == "always_ask_biometric")
+                    .unwrap_or(false);
                 let approval = wait_for_approval(
                     callback,
                     &tool_call.name,
@@ -163,6 +188,7 @@ pub async fn run_agent_turn(
                     &tool_call.input,
                     &ctx.approval_sender,
                     &ctx.abort_flag,
+                    require_biometric,
                 )
                 .await?;
 
@@ -314,13 +340,14 @@ async fn wait_for_approval(
     args: &serde_json::Value,
     approval_sender: &Arc<Mutex<Option<oneshot::Sender<ApprovalResponse>>>>,
     abort_flag: &Arc<Mutex<bool>>,
+    require_biometric: bool,
 ) -> Result<ApprovalResponse, NativeAgentError> {
     let (tx, rx) = oneshot::channel();
     {
         let mut sender = approval_sender.lock().await;
         *sender = Some(tx);
     }
-    event_bus::emit_approval_request(callback, tool_name, tool_call_id, args);
+    event_bus::emit_approval_request(callback, tool_name, tool_call_id, args, require_biometric);
 
     tokio::select! {
         result = rx => {
@@ -383,7 +410,11 @@ async fn wait_for_mcp_tool_result(
     }
 }
 
-fn requires_approval(tool_name: &str, skill_tools: Option<&HashSet<String>>) -> bool {
+fn requires_approval(
+    tool_name: &str,
+    skill_tools: Option<&HashSet<String>>,
+    db_permissions: &HashMap<String, (String, bool)>,
+) -> bool {
     // Skill tools never need approval (matches old JS agent behavior)
     if let Some(allowed) = skill_tools {
         if allowed.contains(tool_name) {
@@ -391,10 +422,15 @@ fn requires_approval(tool_name: &str, skill_tools: Option<&HashSet<String>>) -> 
         }
     }
 
+    // Check DB-stored permission policy (synced from WebView, persists for background)
+    if let Some((policy, _)) = db_permissions.get(tool_name) {
+        return policy != "always_allow";
+    }
+
+    // Fallback for tools not yet in DB: builtin read-only = allow, MCP = ask
     if !tool_runner::is_builtin_tool(tool_name) {
         return true;
     }
-
     matches!(
         tool_name,
         "write_file" | "edit_file" | "execute_command" | "git_commit" | "manage_cron"

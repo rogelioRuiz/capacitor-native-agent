@@ -403,6 +403,41 @@ class NativeAgentPlugin : Plugin() {
         call.resolve()
     }
 
+    // ── Tool Permissions ────────────────────────────────────────────
+
+    @PluginMethod
+    fun seedToolPermissions(call: PluginCall) = withHandle(call) { h ->
+        val count = h.seedToolPermissions(
+            call.getString("defaultsJson") ?: return@withHandle call.reject("defaultsJson is required")
+        )
+        val ret = JSObject()
+        ret.put("seeded", count.toInt())
+        call.resolve(ret)
+    }
+
+    @PluginMethod
+    fun setToolPermission(call: PluginCall) = withHandle(call) { h ->
+        h.setToolPermission(
+            call.getString("toolName") ?: return@withHandle call.reject("toolName is required"),
+            call.getString("permission") ?: return@withHandle call.reject("permission is required"),
+            call.getBoolean("enabled") ?: true,
+        )
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun listToolPermissions(call: PluginCall) = withHandle(call) { h ->
+        val ret = JSObject()
+        ret.put("permissionsJson", h.listToolPermissions())
+        call.resolve(ret)
+    }
+
+    @PluginMethod
+    fun resetToolPermissions(call: PluginCall) = withHandle(call) { h ->
+        h.resetToolPermissions()
+        call.resolve()
+    }
+
     // ── MCP ───────────────────────────────────────────────────────────
 
     @PluginMethod

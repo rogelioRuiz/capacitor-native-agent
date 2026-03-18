@@ -194,6 +194,10 @@ pub struct ToolDefinition {
     pub input_schema: serde_json::Value,
     #[serde(default)]
     pub webview_only: bool,
+    /// Consumer-owned approval policy synced from WebView.
+    /// "always_allow" | "always_ask" | "always_ask_biometric"
+    #[serde(default)]
+    pub approval_policy: Option<String>,
 }
 
 /// A tool call from the LLM response.

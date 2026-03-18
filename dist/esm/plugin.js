@@ -40,6 +40,10 @@ class NativeAgentWeb extends WebPlugin {
     async restartMcp() { throw this.unavailable(ERR); }
     async getModels() { throw this.unavailable(ERR); }
     async invokeTool() { throw this.unavailable(ERR); }
+    async seedToolPermissions() { throw this.unavailable(ERR); }
+    async setToolPermission() { throw this.unavailable(ERR); }
+    async listToolPermissions() { throw this.unavailable(ERR); }
+    async resetToolPermissions() { throw this.unavailable(ERR); }
 }
 export const NativeAgent = registerPlugin('NativeAgent', {
     web: () => Promise.resolve(new NativeAgentWeb()),

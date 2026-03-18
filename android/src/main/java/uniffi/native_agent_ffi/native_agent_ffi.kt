@@ -895,6 +895,14 @@ internal open class UniffiVTableCallbackInterfaceNativeNotifier(
 
 
 
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -961,6 +969,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_list_skills(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_list_tool_permissions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_session(`ptr`: Pointer,`sessionKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_persist_config(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
@@ -970,6 +980,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_remove_cron_job(`ptr`: Pointer,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_remove_skill(`ptr`: Pointer,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_reset_tool_permissions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_respond_to_approval(`ptr`: Pointer,`toolCallId`: RustBuffer.ByValue,`approved`: Byte,`reason`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -983,6 +995,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_run_cron_job(`ptr`: Pointer,`jobId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_seed_tool_permissions(`ptr`: Pointer,`defaultsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Int
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_send_message(`ptr`: Pointer,`params`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Pointer,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -996,6 +1010,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_notifier(`ptr`: Pointer,`notifier`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_scheduler_config(`ptr`: Pointer,`configJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_tool_permission(`ptr`: Pointer,`toolName`: RustBuffer.ByValue,`permission`: RustBuffer.ByValue,`enabled`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_start_mcp(`ptr`: Pointer,`toolsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
@@ -1171,6 +1187,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_list_skills(
     ): Short
+    fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_list_tool_permissions(
+    ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_session(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_persist_config(
@@ -1180,6 +1198,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_remove_cron_job(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_remove_skill(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_reset_tool_permissions(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval(
     ): Short
@@ -1192,6 +1212,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_resume_session(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_run_cron_job(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_seed_tool_permissions(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_send_message(
     ): Short
@@ -1206,6 +1228,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_notifier(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_scheduler_config(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_tool_permission(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_start_mcp(
     ): Short
@@ -1313,6 +1337,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_list_skills() != 14677.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_list_tool_permissions() != 48713.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_session() != 39832.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1326,6 +1353,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_remove_skill() != 49129.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_reset_tool_permissions() != 15060.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval() != 3194.toShort()) {
@@ -1344,6 +1374,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_run_cron_job() != 11263.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_seed_tool_permissions() != 39225.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_send_message() != 53296.toShort()) {
@@ -1365,6 +1398,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_scheduler_config() != 18609.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_tool_permission() != 8407.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_start_mcp() != 53972.toShort()) {
@@ -1844,6 +1880,11 @@ public interface NativeAgentHandleInterface {
     fun `listSkills`(): kotlin.String
     
     /**
+     * List all tool permissions as JSON array.
+     */
+    fun `listToolPermissions`(): kotlin.String
+    
+    /**
      * Load session message history.
      */
     fun `loadSession`(`sessionKey`: kotlin.String): kotlin.String
@@ -1864,6 +1905,11 @@ public interface NativeAgentHandleInterface {
      * Remove a cron skill.
      */
     fun `removeSkill`(`id`: kotlin.String)
+    
+    /**
+     * Delete all tool permissions (reset to defaults on next seed).
+     */
+    fun `resetToolPermissions`()
     
     /**
      * Respond to a tool approval request.
@@ -1896,6 +1942,11 @@ public interface NativeAgentHandleInterface {
     fun `runCronJob`(`jobId`: kotlin.String)
     
     /**
+     * Seed tool permissions from defaults. INSERT OR IGNORE preserves user overrides.
+     */
+    fun `seedToolPermissions`(`defaultsJson`: kotlin.String): kotlin.UInt
+    
+    /**
      * Send a message to the agent and start an agent loop turn.
      */
     fun `sendMessage`(`params`: SendMessageParams): kotlin.String
@@ -1923,6 +1974,11 @@ public interface NativeAgentHandleInterface {
      * Set scheduler config.
      */
     fun `setSchedulerConfig`(`configJson`: kotlin.String)
+    
+    /**
+     * Set a single tool's permission (upsert).
+     */
+    fun `setToolPermission`(`toolName`: kotlin.String, `permission`: kotlin.String, `enabled`: kotlin.Boolean)
     
     /**
      * Start MCP server with given tools.
@@ -2348,6 +2404,22 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
 
     
     /**
+     * List all tool permissions as JSON array.
+     */
+    @Throws(NativeAgentException::class)override fun `listToolPermissions`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_list_tool_permissions(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Load session message history.
      */
     @Throws(NativeAgentException::class)override fun `loadSession`(`sessionKey`: kotlin.String): kotlin.String {
@@ -2415,6 +2487,21 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_remove_skill(
         it, FfiConverterString.lower(`id`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Delete all tool permissions (reset to defaults on next seed).
+     */
+    @Throws(NativeAgentException::class)override fun `resetToolPermissions`()
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_reset_tool_permissions(
+        it, _status)
 }
     }
     
@@ -2513,6 +2600,22 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
 
     
     /**
+     * Seed tool permissions from defaults. INSERT OR IGNORE preserves user overrides.
+     */
+    @Throws(NativeAgentException::class)override fun `seedToolPermissions`(`defaultsJson`: kotlin.String): kotlin.UInt {
+            return FfiConverterUInt.lift(
+    callWithPointer {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_seed_tool_permissions(
+        it, FfiConverterString.lower(`defaultsJson`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Send a message to the agent and start an agent loop turn.
      */
     @Throws(NativeAgentException::class)override fun `sendMessage`(`params`: SendMessageParams): kotlin.String {
@@ -2606,6 +2709,21 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_scheduler_config(
         it, FfiConverterString.lower(`configJson`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Set a single tool's permission (upsert).
+     */
+    @Throws(NativeAgentException::class)override fun `setToolPermission`(`toolName`: kotlin.String, `permission`: kotlin.String, `enabled`: kotlin.Boolean)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_tool_permission(
+        it, FfiConverterString.lower(`toolName`),FfiConverterString.lower(`permission`),FfiConverterBoolean.lower(`enabled`),_status)
 }
     }
     

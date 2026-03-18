@@ -522,6 +522,32 @@ impl NativeAgentHandle {
         db::list_skills(&conn)
     }
 
+    // ── Tool Permissions ──────────────────────────────────────────────
+
+    /// Seed tool permissions from defaults. INSERT OR IGNORE preserves user overrides.
+    pub fn seed_tool_permissions(&self, defaults_json: String) -> Result<u32, NativeAgentError> {
+        let conn = db::open_db(&self.config.db_path)?;
+        db::seed_tool_permissions(&conn, &defaults_json)
+    }
+
+    /// Set a single tool's permission (upsert).
+    pub fn set_tool_permission(&self, tool_name: String, permission: String, enabled: bool) -> Result<(), NativeAgentError> {
+        let conn = db::open_db(&self.config.db_path)?;
+        db::set_tool_permission(&conn, &tool_name, &permission, enabled)
+    }
+
+    /// List all tool permissions as JSON array.
+    pub fn list_tool_permissions(&self) -> Result<String, NativeAgentError> {
+        let conn = db::open_db(&self.config.db_path)?;
+        db::list_tool_permissions(&conn)
+    }
+
+    /// Delete all tool permissions (reset to defaults on next seed).
+    pub fn reset_tool_permissions(&self) -> Result<(), NativeAgentError> {
+        let conn = db::open_db(&self.config.db_path)?;
+        db::reset_tool_permissions(&conn)
+    }
+
     /// Start a skill session.
     pub fn start_skill(
         &self,
@@ -990,12 +1016,18 @@ impl NativeAgentHandle {
                 .or_else(|| tool.get("webview_only"))
                 .and_then(|v| v.as_bool())
                 .unwrap_or(true);
+            let approval_policy = tool
+                .get("approvalPolicy")
+                .or_else(|| tool.get("approval_policy"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
 
             parsed.push(types::ToolDefinition {
                 name: name.to_string(),
                 description,
                 input_schema,
                 webview_only,
+                approval_policy,
             });
         }
 

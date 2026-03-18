@@ -49,6 +49,11 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "listSkills", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startSkill", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endSkill", returnType: CAPPluginReturnPromise),
+        // Tool Permissions
+        CAPPluginMethod(name: "seedToolPermissions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setToolPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listToolPermissions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "resetToolPermissions", returnType: CAPPluginReturnPromise),
         // MCP
         CAPPluginMethod(name: "startMcp", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "restartMcp", returnType: CAPPluginReturnPromise),
@@ -661,6 +666,59 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve()
             } catch {
                 call.reject("endSkill failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // ── Tool Permissions ──────────────────────────────────────────────────────
+
+    @objc func seedToolPermissions(_ call: CAPPluginCall) {
+        withHandle(call) { h in
+            guard let defaultsJson = call.getString("defaultsJson") else {
+                return call.reject("defaultsJson is required")
+            }
+            do {
+                let count = try h.seedToolPermissions(defaultsJson: defaultsJson)
+                call.resolve(["seeded": Int(count)])
+            } catch {
+                call.reject("seedToolPermissions failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func setToolPermission(_ call: CAPPluginCall) {
+        withHandle(call) { h in
+            guard let toolName = call.getString("toolName"),
+                  let permission = call.getString("permission") else {
+                return call.reject("toolName and permission are required")
+            }
+            let enabled = call.getBool("enabled") ?? true
+            do {
+                try h.setToolPermission(toolName: toolName, permission: permission, enabled: enabled)
+                call.resolve()
+            } catch {
+                call.reject("setToolPermission failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func listToolPermissions(_ call: CAPPluginCall) {
+        withHandle(call) { h in
+            do {
+                call.resolve(["permissionsJson": try h.listToolPermissions()])
+            } catch {
+                call.reject("listToolPermissions failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func resetToolPermissions(_ call: CAPPluginCall) {
+        withHandle(call) { h in
+            do {
+                try h.resetToolPermissions()
+                call.resolve()
+            } catch {
+                call.reject("resetToolPermissions failed: \(error.localizedDescription)")
             }
         }
     }

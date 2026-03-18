@@ -155,6 +155,15 @@ pub fn ensure_schema(conn: &Connection) -> Result<(), NativeAgentError> {
         );
 
         CREATE INDEX IF NOT EXISTS idx_pending_events_created_at ON pending_events(created_at);
+
+        CREATE TABLE IF NOT EXISTS tool_permissions (
+            tool_name  TEXT PRIMARY KEY,
+            permission TEXT NOT NULL DEFAULT 'always_ask',
+            enabled    INTEGER NOT NULL DEFAULT 1,
+            source     TEXT,
+            group_id   TEXT,
+            updated_at INTEGER
+        );
         "
     )?;
     Ok(())
@@ -1334,6 +1343,103 @@ pub async fn handle_wake(
         }
     }
 
+    Ok(())
+}
+
+// ── Tool Permissions ────────────────────────────────────────────────────────
+
+/// Seed tool permissions from a JSON array of defaults.
+/// Uses INSERT OR IGNORE so existing user customizations are preserved.
+pub fn seed_tool_permissions(conn: &Connection, defaults_json: &str) -> Result<u32, NativeAgentError> {
+    let entries: Vec<serde_json::Value> = serde_json::from_str(defaults_json)
+        .map_err(|e| NativeAgentError::Agent { msg: format!("Invalid defaults JSON: {e}") })?;
+
+    let mut stmt = conn.prepare(
+        "INSERT OR IGNORE INTO tool_permissions (tool_name, permission, enabled, source, group_id, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, NULL)"
+    )?;
+
+    let mut count = 0u32;
+    for entry in &entries {
+        let name = entry.get("tool_name").and_then(|v| v.as_str()).unwrap_or("");
+        if name.is_empty() { continue; }
+        let permission = entry.get("permission").and_then(|v| v.as_str()).unwrap_or("always_ask");
+        let enabled = entry.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+        let source = entry.get("source").and_then(|v| v.as_str());
+        let group_id = entry.get("group_id").and_then(|v| v.as_str());
+
+        let inserted = stmt.execute(params![name, permission, enabled as i32, source, group_id])?;
+        if inserted > 0 { count += 1; }
+    }
+    Ok(count)
+}
+
+/// Set a single tool's permission (upsert).
+pub fn set_tool_permission(
+    conn: &Connection,
+    tool_name: &str,
+    permission: &str,
+    enabled: bool,
+) -> Result<(), NativeAgentError> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+    conn.execute(
+        "INSERT INTO tool_permissions (tool_name, permission, enabled, updated_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(tool_name) DO UPDATE SET permission = ?2, enabled = ?3, updated_at = ?4",
+        params![tool_name, permission, enabled as i32, now],
+    )?;
+    Ok(())
+}
+
+/// List all tool permissions as JSON array.
+pub fn list_tool_permissions(conn: &Connection) -> Result<String, NativeAgentError> {
+    let mut stmt = conn.prepare(
+        "SELECT tool_name, permission, enabled, source, group_id, updated_at FROM tool_permissions ORDER BY tool_name"
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(serde_json::json!({
+            "tool_name": row.get::<_, String>(0)?,
+            "permission": row.get::<_, String>(1)?,
+            "enabled": row.get::<_, i32>(2)? != 0,
+            "source": row.get::<_, Option<String>>(3)?,
+            "group_id": row.get::<_, Option<String>>(4)?,
+            "updated_at": row.get::<_, Option<i64>>(5)?,
+        }))
+    })?;
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row?);
+    }
+    Ok(serde_json::to_string(&results)
+        .map_err(|e| NativeAgentError::Agent { msg: format!("JSON serialize failed: {e}") })?)
+}
+
+/// Load tool permissions as a HashMap for fast lookup in agent loop.
+pub fn load_tool_permissions_map(conn: &Connection) -> Result<std::collections::HashMap<String, (String, bool)>, NativeAgentError> {
+    let mut stmt = conn.prepare(
+        "SELECT tool_name, permission, enabled FROM tool_permissions"
+    )?;
+    let mut map = std::collections::HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i32>(2)? != 0,
+        ))
+    })?;
+    for row in rows {
+        let (name, perm, enabled) = row?;
+        map.insert(name, (perm, enabled));
+    }
+    Ok(map)
+}
+
+/// Delete all tool permissions (used for reset to defaults).
+pub fn reset_tool_permissions(conn: &Connection) -> Result<(), NativeAgentError> {
+    conn.execute("DELETE FROM tool_permissions", [])?;
     Ok(())
 }
 

@@ -260,6 +260,13 @@ export interface NativeAgentPlugin {
   startSkill(options: { skillId: string; configJson: string; provider?: string }): Promise<{ sessionKey: string }>
   endSkill(options: { skillId: string }): Promise<void>
 
+  // ── Tool Permissions ──
+
+  seedToolPermissions(options: { defaultsJson: string }): Promise<{ seeded: number }>
+  setToolPermission(options: { toolName: string; permission: string; enabled: boolean }): Promise<void>
+  listToolPermissions(): Promise<{ permissionsJson: string }>
+  resetToolPermissions(): Promise<void>
+
   // ── MCP ──
 
   startMcp(options: { toolsJson: string }): Promise<{ toolCount: number }>

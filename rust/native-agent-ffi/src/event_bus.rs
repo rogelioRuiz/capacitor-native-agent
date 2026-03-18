@@ -60,6 +60,7 @@ pub fn emit_approval_request(
     tool_name: &str,
     tool_call_id: &str,
     args: &serde_json::Value,
+    require_biometric: bool,
 ) {
     emit(
         callback,
@@ -68,6 +69,7 @@ pub fn emit_approval_request(
             "toolName": tool_name,
             "toolCallId": tool_call_id,
             "args": args,
+            "requireBiometric": require_biometric,
         }),
     );
 }
