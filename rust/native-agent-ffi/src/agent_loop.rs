@@ -49,6 +49,9 @@ pub struct AgentLoopContext<'a> {
     /// When true, suppress the `user_message` event for the prompt.
     /// Used by skill kickoffs to hide the internal instruction from the chat UI.
     pub skip_user_echo: bool,
+    /// Session key for this agent turn. Included in every emitted event so
+    /// consumers can filter stale events during skill transitions.
+    pub session_key: String,
 }
 
 /// Run one agent turn (prompt -> LLM -> tools -> ... -> done).
@@ -84,7 +87,7 @@ pub async fn run_agent_turn(
                 "user_message",
                 &serde_json::json!({
                     "text": ctx.params.prompt,
-                    "sessionKey": ctx.params.session_key,
+                    "sessionKey": ctx.session_key,
                 }),
             );
         }
@@ -127,7 +130,7 @@ pub async fn run_agent_turn(
             system: Some(ctx.params.system_prompt.clone()),
         };
 
-        let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag).await?;
+        let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag, &ctx.session_key).await?;
 
         cumulative_usage.input_tokens += response.usage.input_tokens;
         cumulative_usage.output_tokens += response.usage.output_tokens;
@@ -146,6 +149,7 @@ pub async fn run_agent_turn(
                 "max_turns_reached",
                 &serde_json::json!({
                     "turns": turn_count,
+                    "sessionKey": ctx.session_key,
                 }),
             );
             break;
@@ -158,7 +162,7 @@ pub async fn run_agent_turn(
                 break;
             }
             ensure_not_aborted(&ctx.abort_flag).await?;
-            event_bus::emit_tool_use(callback, &tool_call.name, &tool_call.id, &tool_call.input);
+            event_bus::emit_tool_use(callback, &tool_call.name, &tool_call.id, &tool_call.input, &ctx.session_key);
 
             // Check if tool is disabled in permissions DB
             if let Some((_, false)) = db_permissions.get(&tool_call.name) {
@@ -168,6 +172,7 @@ pub async fn run_agent_turn(
                     &tool_call.name,
                     &tool_call.id,
                     &serde_json::json!({ "content": content, "isError": true }),
+                    &ctx.session_key,
                 );
                 tool_results.push(ContentBlock::ToolResult {
                     tool_use_id: tool_call.id.clone(),
@@ -189,6 +194,7 @@ pub async fn run_agent_turn(
                     &ctx.approval_sender,
                     &ctx.abort_flag,
                     require_biometric,
+                    &ctx.session_key,
                 )
                 .await?;
 
@@ -201,6 +207,7 @@ pub async fn run_agent_turn(
                         &tool_call.name,
                         &tool_call.id,
                         &serde_json::json!({ "content": content, "isError": true }),
+                        &ctx.session_key,
                     );
                     tool_results.push(ContentBlock::ToolResult {
                         tool_use_id: tool_call.id.clone(),
@@ -232,6 +239,7 @@ pub async fn run_agent_turn(
                     ctx.is_background,
                     &ctx.mcp_pending,
                     &ctx.abort_flag,
+                    &ctx.session_key,
                 )
                 .await?;
                 (result.result_json, result.is_error)
@@ -242,6 +250,7 @@ pub async fn run_agent_turn(
                 &tool_call.name,
                 &tool_call.id,
                 &serde_json::json!({ "content": content, "isError": is_error }),
+                &ctx.session_key,
             );
 
             tool_results.push(ContentBlock::ToolResult {
@@ -278,7 +287,7 @@ fn wall_clock_timeout_reached(ctx: &AgentLoopContext<'_>, started_at: std::time:
         event_bus::emit(
             ctx.callback.as_deref(),
             "agent.background_timeout",
-            &serde_json::json!({ "timeoutMs": timeout_ms }),
+            &serde_json::json!({ "timeoutMs": timeout_ms, "sessionKey": ctx.session_key }),
         );
     }
     true
@@ -341,13 +350,14 @@ async fn wait_for_approval(
     approval_sender: &Arc<Mutex<Option<oneshot::Sender<ApprovalResponse>>>>,
     abort_flag: &Arc<Mutex<bool>>,
     require_biometric: bool,
+    session_key: &str,
 ) -> Result<ApprovalResponse, NativeAgentError> {
     let (tx, rx) = oneshot::channel();
     {
         let mut sender = approval_sender.lock().await;
         *sender = Some(tx);
     }
-    event_bus::emit_approval_request(callback, tool_name, tool_call_id, args, require_biometric);
+    event_bus::emit_approval_request(callback, tool_name, tool_call_id, args, require_biometric, session_key);
 
     tokio::select! {
         result = rx => {
@@ -371,6 +381,7 @@ async fn wait_for_mcp_tool_result(
     is_background: bool,
     mcp_pending: &Arc<Mutex<HashMap<String, oneshot::Sender<McpToolResult>>>>,
     abort_flag: &Arc<Mutex<bool>>,
+    session_key: &str,
 ) -> Result<McpToolResult, NativeAgentError> {
     if is_background {
         return Ok(McpToolResult {
@@ -384,7 +395,7 @@ async fn wait_for_mcp_tool_result(
         let mut pending = mcp_pending.lock().await;
         pending.insert(tool_call_id.to_string(), tx);
     }
-    event_bus::emit_mcp_tool_call(callback, tool_name, tool_call_id, args);
+    event_bus::emit_mcp_tool_call(callback, tool_name, tool_call_id, args, session_key);
 
     tokio::select! {
         result = rx => {
@@ -460,22 +471,24 @@ async fn call_with_retry(
     req: &CompletionRequest,
     callback: Option<&dyn NativeEventCallback>,
     abort_flag: &Arc<Mutex<bool>>,
+    session_key: &str,
 ) -> Result<crate::llm_driver::CompletionResponse, NativeAgentError> {
     let mut last_error: Option<LlmError> = None;
+    let sk = session_key.to_string();
 
     for attempt in 0..=MAX_RETRIES {
         ensure_not_aborted(abort_flag).await?;
 
         let on_event = |event: StreamEvent| match &event {
-            StreamEvent::TextDelta(text) => event_bus::emit_text_delta(callback, text),
-            StreamEvent::ThinkingDelta(text) => event_bus::emit_thinking(callback, text),
+            StreamEvent::TextDelta(text) => event_bus::emit_text_delta(callback, text, &sk),
+            StreamEvent::ThinkingDelta(text) => event_bus::emit_thinking(callback, text, &sk),
             StreamEvent::ToolUseStart { .. } => {}
             StreamEvent::ToolUseEnd { .. } => {}
             StreamEvent::WebSearchStart { query } => {
-                event_bus::emit_web_search_start(callback, query)
+                event_bus::emit_web_search_start(callback, query, &sk)
             }
             StreamEvent::WebSearchComplete { results_count } => {
-                event_bus::emit_web_search_complete(callback, *results_count)
+                event_bus::emit_web_search_complete(callback, *results_count, &sk)
             }
             StreamEvent::MessageDone(_) => {}
         };
@@ -490,7 +503,7 @@ async fn call_with_retry(
                 let delay = std::cmp::min(BASE_DELAY_MS * 2u64.pow(attempt), MAX_DELAY_MS);
                 let jitter = delay / 2 + (rand_u64() % (delay / 2 + 1));
 
-                event_bus::emit_retry(callback, attempt + 1, jitter);
+                event_bus::emit_retry(callback, attempt + 1, jitter, &sk);
 
                 last_error = Some(e);
                 tokio::time::sleep(tokio::time::Duration::from_millis(jitter)).await;
@@ -560,6 +573,8 @@ mod tests {
                 &serde_json::json!({"path": "a.txt"}),
                 &sender_for_task,
                 &abort_for_task,
+                false,
+                "test-session",
             )
             .await
             .unwrap()
@@ -656,6 +671,7 @@ mod tests {
             true,
             &pending,
             &abort_flag,
+            "test-session",
         )
         .await
         .unwrap();

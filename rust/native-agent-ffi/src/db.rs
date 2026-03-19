@@ -1254,6 +1254,7 @@ pub async fn handle_wake(
             mcp_pending: mcp_pending.clone(),
             memory_provider: memory_provider.clone(),
             skip_user_echo: false,
+            session_key: params.session_key.clone(),
         })
         .await;
         let duration_ms = start.elapsed().as_millis() as i64;

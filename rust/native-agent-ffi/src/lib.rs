@@ -666,6 +666,7 @@ impl NativeAgentHandle {
                 mcp_pending,
                 memory_provider: memory_provider.clone(),
                 skip_user_echo: true, // Skill kickoff — hide internal instruction from chat
+                session_key: params_for_task.session_key.clone(),
             })
             .await;
 
@@ -931,6 +932,7 @@ impl NativeAgentHandle {
                 mcp_pending,
                 memory_provider: memory_provider.clone(),
                 skip_user_echo: false,
+                session_key: params_for_task.session_key.clone(),
             })
             .await;
 

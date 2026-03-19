@@ -1,4 +1,8 @@
 //! Event bus — dispatches events from agent loop to UniFFI callback.
+//!
+//! Every event includes a `sessionKey` so consumers can distinguish events
+//! from different agent sessions (e.g. skill A winding down vs. skill B
+//! starting up). This prevents stale-event mis-attribution during transitions.
 
 use crate::NativeEventCallback;
 
@@ -14,8 +18,12 @@ pub fn emit(
 }
 
 /// Emit a text_delta event.
-pub fn emit_text_delta(callback: Option<&dyn NativeEventCallback>, text: &str) {
-    emit(callback, "text_delta", &serde_json::json!({ "text": text }));
+pub fn emit_text_delta(callback: Option<&dyn NativeEventCallback>, text: &str, session_key: &str) {
+    emit(
+        callback,
+        "text_delta",
+        &serde_json::json!({ "text": text, "sessionKey": session_key }),
+    );
 }
 
 /// Emit a tool_use event.
@@ -24,6 +32,7 @@ pub fn emit_tool_use(
     tool_name: &str,
     tool_call_id: &str,
     args: &serde_json::Value,
+    session_key: &str,
 ) {
     emit(
         callback,
@@ -32,6 +41,7 @@ pub fn emit_tool_use(
             "toolName": tool_name,
             "toolCallId": tool_call_id,
             "args": args,
+            "sessionKey": session_key,
         }),
     );
 }
@@ -42,6 +52,7 @@ pub fn emit_tool_result(
     tool_name: &str,
     tool_call_id: &str,
     result: &serde_json::Value,
+    session_key: &str,
 ) {
     emit(
         callback,
@@ -50,6 +61,7 @@ pub fn emit_tool_result(
             "toolName": tool_name,
             "toolCallId": tool_call_id,
             "result": result,
+            "sessionKey": session_key,
         }),
     );
 }
@@ -61,6 +73,7 @@ pub fn emit_approval_request(
     tool_call_id: &str,
     args: &serde_json::Value,
     require_biometric: bool,
+    session_key: &str,
 ) {
     emit(
         callback,
@@ -70,6 +83,7 @@ pub fn emit_approval_request(
             "toolCallId": tool_call_id,
             "args": args,
             "requireBiometric": require_biometric,
+            "sessionKey": session_key,
         }),
     );
 }
@@ -80,6 +94,7 @@ pub fn emit_mcp_tool_call(
     tool_name: &str,
     tool_call_id: &str,
     args: &serde_json::Value,
+    session_key: &str,
 ) {
     emit(
         callback,
@@ -88,41 +103,60 @@ pub fn emit_mcp_tool_call(
             "toolName": tool_name,
             "toolCallId": tool_call_id,
             "args": args,
+            "sessionKey": session_key,
         }),
     );
 }
 
 /// Emit a thinking delta event.
-pub fn emit_thinking(callback: Option<&dyn NativeEventCallback>, text: &str) {
-    emit(callback, "thinking", &serde_json::json!({ "text": text }));
+pub fn emit_thinking(callback: Option<&dyn NativeEventCallback>, text: &str, session_key: &str) {
+    emit(
+        callback,
+        "thinking",
+        &serde_json::json!({ "text": text, "sessionKey": session_key }),
+    );
 }
 
 /// Emit a web_search_start event.
-pub fn emit_web_search_start(callback: Option<&dyn NativeEventCallback>, query: &str) {
+pub fn emit_web_search_start(
+    callback: Option<&dyn NativeEventCallback>,
+    query: &str,
+    session_key: &str,
+) {
     emit(
         callback,
         "web_search_start",
-        &serde_json::json!({ "query": query }),
+        &serde_json::json!({ "query": query, "sessionKey": session_key }),
     );
 }
 
 /// Emit a web_search_complete event.
-pub fn emit_web_search_complete(callback: Option<&dyn NativeEventCallback>, results_count: u32) {
+pub fn emit_web_search_complete(
+    callback: Option<&dyn NativeEventCallback>,
+    results_count: u32,
+    session_key: &str,
+) {
     emit(
         callback,
         "web_search_complete",
-        &serde_json::json!({ "resultsCount": results_count }),
+        &serde_json::json!({ "resultsCount": results_count, "sessionKey": session_key }),
     );
 }
 
 /// Emit retry event.
-pub fn emit_retry(callback: Option<&dyn NativeEventCallback>, attempt: u32, delay_ms: u64) {
+pub fn emit_retry(
+    callback: Option<&dyn NativeEventCallback>,
+    attempt: u32,
+    delay_ms: u64,
+    session_key: &str,
+) {
     emit(
         callback,
         "retry",
         &serde_json::json!({
             "attempt": attempt,
             "delayMs": delay_ms,
+            "sessionKey": session_key,
         }),
     );
 }
