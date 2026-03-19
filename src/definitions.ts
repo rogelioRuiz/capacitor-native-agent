@@ -242,6 +242,7 @@ export interface NativeAgentPlugin {
   listCronJobs(): Promise<{ jobsJson: string }>
   runCronJob(options: { jobId: string }): Promise<void>
   listCronRuns(options: { jobId?: string; limit?: number }): Promise<{ runsJson: string }>
+  loadSurfacedMessages(options: { limit?: number }): Promise<{ messagesJson: string }>
   handleWake(options: { source: string }): Promise<void>
 
   getSchedulerConfig(): Promise<{ schedulerJson: string; heartbeatJson: string }>

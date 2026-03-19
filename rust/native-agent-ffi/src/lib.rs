@@ -426,6 +426,12 @@ impl NativeAgentHandle {
         db::list_cron_runs(&conn, job_id.as_deref(), limit)
     }
 
+    /// Load surfaced messages from background/cron jobs.
+    pub fn load_surfaced_messages(&self, limit: i64) -> Result<String, NativeAgentError> {
+        let conn = db::open_db(&self.config.db_path)?;
+        db::load_surfaced_messages(&conn, limit)
+    }
+
     /// Handle a wake event (evaluate due cron jobs).
     pub fn handle_wake(&self, source: String) -> Result<(), NativeAgentError> {
         let config = self.config.clone();

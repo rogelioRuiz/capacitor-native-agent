@@ -103,6 +103,7 @@ pub fn is_builtin_tool(name: &str) -> bool {
             | "memory_forget"
             | "memory_search"
             | "memory_list"
+            | "surface_to_foreground"
     )
 }
 
@@ -130,6 +131,14 @@ pub async fn execute_tool(
         "manage_cron" => tool_manage_cron(args, workspace),
         "memory_recall" | "memory_store" | "memory_forget" | "memory_search" | "memory_list" => {
             execute_memory_tool(name, args, memory_provider)
+        }
+        "surface_to_foreground" => {
+            // Tool execution returns success. The actual event emission happens
+            // in agent_loop.rs post-execution via event_bus::emit().
+            Ok(serde_json::json!({
+                "surfaced": true,
+                "summary_length": args.get("summary").and_then(|v| v.as_str()).map(|s| s.len()).unwrap_or(0),
+            }))
         }
         _ => Err(NativeAgentError::Tool {
             msg: format!("Unknown tool: {}", name),
@@ -1151,6 +1160,23 @@ fn all_tool_definitions() -> Vec<ToolDefinition> {
                     "prompt": { "type": "string" }, "id": { "type": "string" }, "limit": { "type": "integer" }
                 },
                 "required": ["action"]
+            }),
+        ),
+        tool_def(
+            "surface_to_foreground",
+            "Surface a summary to the user's active chat session. Use this when you have results, alerts, or information the user should see. The summary appears as an inline notification card in their conversation. Only available during background execution (cron jobs, scheduled tasks).",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "Short title for the notification" },
+                    "summary": { "type": "string", "description": "Markdown summary of results. Keep concise — 1-3 sentences." },
+                    "priority": {
+                        "type": "string",
+                        "enum": ["low", "normal", "high", "urgent"],
+                        "description": "Urgency level. 'urgent' triggers OS notification even when app is foregrounded. Default: normal."
+                    }
+                },
+                "required": ["summary"]
             }),
         ),
     ]

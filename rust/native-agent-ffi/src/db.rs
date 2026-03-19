@@ -164,6 +164,23 @@ pub fn ensure_schema(conn: &Connection) -> Result<(), NativeAgentError> {
             group_id   TEXT,
             updated_at INTEGER
         );
+
+        CREATE TABLE IF NOT EXISTS surfaced_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id TEXT,
+            job_name TEXT,
+            title TEXT,
+            summary TEXT,
+            priority TEXT NOT NULL DEFAULT 'normal',
+            status TEXT NOT NULL DEFAULT 'ok',
+            duration_ms INTEGER,
+            error TEXT,
+            source TEXT NOT NULL DEFAULT 'auto',
+            session_key TEXT,
+            created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_surfaced_created ON surfaced_messages(created_at);
         "
     )?;
     Ok(())
@@ -987,6 +1004,71 @@ fn skill_to_json(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
     }))
 }
 
+// ── Surfaced messages ────────────────────────────────────────────────────────
+
+pub fn save_surfaced_message(
+    conn: &Connection,
+    job_id: &str,
+    job_name: &str,
+    title: Option<&str>,
+    summary: &str,
+    priority: &str,
+    status: &str,
+    duration_ms: i64,
+    error: Option<&str>,
+    source: &str,
+    session_key: &str,
+) -> Result<(), NativeAgentError> {
+    conn.execute(
+        "INSERT INTO surfaced_messages (job_id, job_name, title, summary, priority, status, duration_ms, error, source, session_key, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        params![
+            job_id,
+            job_name,
+            title,
+            summary,
+            priority,
+            status,
+            duration_ms,
+            error,
+            source,
+            session_key,
+            chrono::Utc::now().timestamp_millis()
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn load_surfaced_messages(
+    conn: &Connection,
+    limit: i64,
+) -> Result<String, NativeAgentError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, job_id, job_name, title, summary, priority, status, duration_ms, error, source, session_key, created_at
+         FROM surfaced_messages ORDER BY created_at DESC LIMIT ?",
+    )?;
+    let rows: Vec<serde_json::Value> = stmt
+        .query_map(params![limit], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, i64>(0)?,
+                "jobId": row.get::<_, Option<String>>(1)?,
+                "jobName": row.get::<_, Option<String>>(2)?,
+                "title": row.get::<_, Option<String>>(3)?,
+                "summary": row.get::<_, Option<String>>(4)?,
+                "priority": row.get::<_, String>(5)?,
+                "status": row.get::<_, String>(6)?,
+                "durationMs": row.get::<_, Option<i64>>(7)?,
+                "error": row.get::<_, Option<String>>(8)?,
+                "source": row.get::<_, String>(9)?,
+                "sessionKey": row.get::<_, Option<String>>(10)?,
+                "createdAt": row.get::<_, i64>(11)?,
+            }))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(serde_json::to_string(&rows)?)
+}
+
 // ── Wake / cron evaluation ──────────────────────────────────────────────────
 
 struct PendingEventWriter {
@@ -998,6 +1080,207 @@ impl NativeEventCallback for PendingEventWriter {
         if let Ok(conn) = open_db(&self.db_path) {
             let _ = ensure_schema(&conn);
             let _ = queue_pending_event(&conn, &event_type, &payload_json);
+        }
+    }
+}
+
+/// Wraps the foreground callback for background (cron) agent turns.
+/// Absorbs streaming events so they never cross the FFI bridge.
+/// Captures text_delta content for auto-surfacing on job completion.
+/// Fires push notifications for approval requests and surfaced results.
+struct BackgroundEventFilter {
+    foreground: Arc<dyn NativeEventCallback>,
+    notifier: Option<Arc<dyn NativeNotifier>>,
+    db_path: String,
+    job_id: String,
+    job_name: String,
+    delivery_mode: String,
+    captured_text: std::sync::Mutex<String>,
+}
+
+impl BackgroundEventFilter {
+    fn new(
+        foreground: Arc<dyn NativeEventCallback>,
+        notifier: Option<Arc<dyn NativeNotifier>>,
+        db_path: String,
+        job_id: String,
+        job_name: String,
+        delivery_mode: String,
+    ) -> Self {
+        Self {
+            foreground,
+            notifier,
+            db_path,
+            job_id,
+            job_name,
+            delivery_mode,
+            captured_text: std::sync::Mutex::new(String::new()),
+        }
+    }
+
+    /// After agent turn completes, auto-surface the result.
+    /// Runs for ALL delivery modes except "none"/"silent" — every cron completion
+    /// gets an in-chat card so the user always has something to see.
+    fn auto_surface(&self, status: &str, duration_ms: i64, error: Option<&str>) {
+        if self.delivery_mode == "none" || self.delivery_mode == "silent" {
+            return;
+        }
+
+        let text = self
+            .captured_text
+            .lock()
+            .map(|t| t.clone())
+            .unwrap_or_default();
+        let summary = if text.len() > 500 {
+            // Find a char boundary at or before byte 500 to avoid panic on multi-byte UTF-8
+            let mut end = 500;
+            while !text.is_char_boundary(end) && end > 0 {
+                end -= 1;
+            }
+            format!("{}…", &text[..end])
+        } else {
+            text
+        };
+
+        // 1. Persist to DB (survives app restart)
+        if let Ok(conn) = open_db(&self.db_path) {
+            let _ = save_surfaced_message(
+                &conn,
+                &self.job_id,
+                &self.job_name,
+                None,
+                &summary,
+                "normal",
+                status,
+                duration_ms,
+                error,
+                "auto",
+                &format!("cron-{}", self.job_id),
+            );
+        }
+
+        // 2. Emit event (→ WebView if foregrounded, → PendingEventWriter if backgrounded)
+        let payload = serde_json::json!({
+            "jobId": self.job_id,
+            "jobName": self.job_name,
+            "status": status,
+            "durationMs": duration_ms,
+            "summary": if summary.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(summary.clone()) },
+            "error": error,
+            "source": "auto",
+            "timestamp": chrono::Utc::now().timestamp_millis(),
+        });
+        self.foreground
+            .on_event("background.surface".to_string(), payload.to_string());
+
+        // 3. Push notification for "notification" and "surface" modes
+        if matches!(self.delivery_mode.as_str(), "notification" | "surface") {
+            if let Some(notifier) = &self.notifier {
+                let title = self.job_name.clone();
+                let body = if summary.is_empty() {
+                    format!("{} completed.", self.job_name)
+                } else {
+                    summary
+                };
+                let _ = notifier.send_notification(
+                    title,
+                    body,
+                    serde_json::json!({
+                        "type": "cron_surface",
+                        "jobId": self.job_id,
+                    })
+                    .to_string(),
+                );
+            }
+        }
+    }
+}
+
+impl NativeEventCallback for BackgroundEventFilter {
+    fn on_event(&self, event_type: String, payload_json: String) {
+        match event_type.as_str() {
+            // CAPTURE: accumulate text for auto-surface summary
+            "text_delta" => {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&payload_json) {
+                    if let Some(text) = v.get("text").and_then(|t| t.as_str()) {
+                        if let Ok(mut captured) = self.captured_text.lock() {
+                            captured.push_str(text);
+                        }
+                    }
+                }
+            }
+            // ABSORB: streaming events stay in the background
+            "thinking" | "tool_use" | "tool_result" | "user_message" | "retry"
+            | "web_search_start" | "web_search_complete" | "max_turns_reached"
+            | "agent.completed" | "agent.background_timeout" => {}
+
+            // FORWARD: agent-initiated surface (also persist to DB)
+            "background.surface" => {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&payload_json) {
+                    if let Ok(conn) = open_db(&self.db_path) {
+                        let _ = save_surfaced_message(
+                            &conn,
+                            &self.job_id,
+                            &self.job_name,
+                            v.get("title").and_then(|t| t.as_str()),
+                            v.get("summary").and_then(|s| s.as_str()).unwrap_or(""),
+                            v.get("priority")
+                                .and_then(|p| p.as_str())
+                                .unwrap_or("normal"),
+                            "ok",
+                            0,
+                            None,
+                            "agent",
+                            &format!("cron-{}", self.job_id),
+                        );
+                    }
+                }
+                self.foreground.on_event(event_type, payload_json);
+            }
+
+            // FORWARD + PUSH: approval requests tagged with cron context
+            "approval_request" => {
+                // Fire push notification so user opens app even if backgrounded
+                if let Some(notifier) = &self.notifier {
+                    let tool_name = serde_json::from_str::<serde_json::Value>(&payload_json)
+                        .ok()
+                        .and_then(|v| {
+                            v.get("toolName")
+                                .and_then(|t| t.as_str())
+                                .map(String::from)
+                        })
+                        .unwrap_or_default();
+                    let _ = notifier.send_notification(
+                        format!("Approval needed — {}", self.job_name),
+                        format!("\"{}\" requires your approval", tool_name),
+                        serde_json::json!({
+                            "type": "cron_approval",
+                            "jobId": self.job_id,
+                            "jobName": self.job_name,
+                        })
+                        .to_string(),
+                    );
+                }
+                // Tag with cron context and forward
+                if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&payload_json) {
+                    v["_cronContext"] = serde_json::json!({
+                        "jobId": self.job_id,
+                        "jobName": self.job_name,
+                    });
+                    self.foreground.on_event(
+                        "cron.approval_request".to_string(),
+                        v.to_string(),
+                    );
+                } else {
+                    self.foreground
+                        .on_event("cron.approval_request".to_string(), payload_json);
+                }
+            }
+
+            // FORWARD: everything else (lifecycle events emitted by handle_wake itself)
+            _ => {
+                self.foreground.on_event(event_type, payload_json);
+            }
         }
     }
 }
@@ -1268,10 +1551,22 @@ pub async fn handle_wake(
 
         let start_time = chrono::Utc::now().timestamp_millis();
         let start = std::time::Instant::now();
+
+        // Wrap per-job with BackgroundEventFilter: absorbs streaming events,
+        // captures text for auto-surface, fires push notifications for approvals.
+        let bg_filter = Arc::new(BackgroundEventFilter::new(
+            effective_callback.clone(),
+            notifier.clone(),
+            config.db_path.clone(),
+            job.id.clone(),
+            job.name.clone(),
+            job.delivery_mode.clone(),
+        ));
+
         let result = crate::agent_loop::run_agent_turn(crate::agent_loop::AgentLoopContext {
             config,
             params: &params,
-            callback: Some(effective_callback.clone()),
+            callback: Some(bg_filter.clone() as Arc<dyn NativeEventCallback>),
             abort_flag: abort_flag.clone(),
             is_background: true,
             wall_clock_timeout_ms: Some(25_000),
@@ -1338,6 +1633,8 @@ pub async fn handle_wake(
                         "durationMs": duration_ms,
                     }),
                 );
+                // Auto-surface: persists to DB + emits event + push notification
+                bg_filter.auto_surface("ok", duration_ms, None);
             }
             Err(e) => {
                 let err_msg = e.to_string();
@@ -1368,6 +1665,8 @@ pub async fn handle_wake(
                         "error": err_msg,
                     }),
                 );
+                // Auto-surface error: persists to DB + emits event + push notification
+                bg_filter.auto_surface("error", duration_ms, Some(&err_msg));
             }
         }
     }

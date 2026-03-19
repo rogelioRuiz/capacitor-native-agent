@@ -326,6 +326,16 @@ class NativeAgentPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun loadSurfacedMessages(call: PluginCall) = withHandle(call) { h ->
+        val json = h.loadSurfacedMessages(
+            (call.getInt("limit") ?: 50).toLong(),
+        )
+        val ret = JSObject()
+        ret.put("messagesJson", json)
+        call.resolve(ret)
+    }
+
+    @PluginMethod
     fun handleWake(call: PluginCall) = withHandle(call) { h ->
         h.handleWake(call.getString("source") ?: "unknown")
         call.resolve()

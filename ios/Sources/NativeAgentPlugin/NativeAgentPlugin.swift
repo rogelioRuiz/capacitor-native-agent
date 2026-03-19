@@ -38,6 +38,7 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "listCronJobs", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "runCronJob", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "listCronRuns", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "loadSurfacedMessages", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "handleWake", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getSchedulerConfig", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSchedulerConfig", returnType: CAPPluginReturnPromise),
@@ -532,6 +533,19 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve(["runsJson": json])
             } catch {
                 call.reject("listCronRuns failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func loadSurfacedMessages(_ call: CAPPluginCall) {
+        withHandle(call) { h in
+            do {
+                let json = try h.loadSurfacedMessages(
+                    limit: Int64(call.getInt("limit") ?? 50)
+                )
+                call.resolve(["messagesJson": json])
+            } catch {
+                call.reject("loadSurfacedMessages failed: \(error.localizedDescription)")
             }
         }
     }

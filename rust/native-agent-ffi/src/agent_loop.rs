@@ -245,6 +245,22 @@ pub async fn run_agent_turn(
                 (result.result_json, result.is_error)
             };
 
+            // Post-exec: emit background.surface event for surface_to_foreground tool
+            if tool_call.name == "surface_to_foreground" && !is_error {
+                crate::event_bus::emit(
+                    callback,
+                    "background.surface",
+                    &serde_json::json!({
+                        "summary": tool_call.input.get("summary").and_then(|v| v.as_str()).unwrap_or(""),
+                        "title": tool_call.input.get("title").and_then(|v| v.as_str()),
+                        "priority": tool_call.input.get("priority").and_then(|v| v.as_str()).unwrap_or("normal"),
+                        "source": "agent",
+                        "sessionKey": ctx.session_key,
+                        "timestamp": chrono::Utc::now().timestamp_millis(),
+                    }),
+                );
+            }
+
             event_bus::emit_tool_result(
                 callback,
                 &tool_call.name,
@@ -310,6 +326,9 @@ async fn merged_tool_definitions(
 
     if is_background {
         tools.retain(|tool| !tool.webview_only);
+    } else {
+        // surface_to_foreground is only available during background execution
+        tools.retain(|tool| tool.name != "surface_to_foreground");
     }
 
     let allowed: Option<HashSet<String>> = allowed_json
@@ -618,12 +637,14 @@ mod tests {
                 description: "WebView only".to_string(),
                 input_schema: serde_json::json!({"type": "object"}),
                 webview_only: true,
+                approval_policy: None,
             },
             ToolDefinition {
                 name: "native_tool".to_string(),
                 description: "Native".to_string(),
                 input_schema: serde_json::json!({"type": "object"}),
                 webview_only: false,
+                approval_policy: None,
             },
         ]));
 
@@ -642,6 +663,7 @@ mod tests {
             description: "MCP memory".to_string(),
             input_schema: serde_json::json!({"type": "object"}),
             webview_only: true,
+            approval_policy: None,
         }]));
 
         let tools = merged_tool_definitions("", None, &mcp_tools, false).await;
