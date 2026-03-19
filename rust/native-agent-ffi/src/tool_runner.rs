@@ -834,42 +834,31 @@ fn tool_manage_cron(
 
     match action {
         "list" => {
-            let mut stmt = conn.prepare(
-                "SELECT id, name, prompt, schedule, status, last_run_at, run_count FROM cron_jobs ORDER BY name"
-            ).map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
-            let jobs: Vec<serde_json::Value> = stmt.query_map([], |row| {
-                Ok(serde_json::json!({
-                    "id": row.get::<_, String>(0)?, "name": row.get::<_, String>(1)?,
-                    "prompt": row.get::<_, String>(2)?, "schedule": row.get::<_, String>(3)?,
-                    "status": row.get::<_, String>(4)?, "lastRunAt": row.get::<_, Option<String>>(5)?,
-                    "runCount": row.get::<_, i64>(6)?,
-                }))
-            }).map_err(|e| NativeAgentError::Database { msg: e.to_string() })?
-            .filter_map(|r| r.ok()).collect();
+            let json = crate::db::list_cron_jobs(&conn)?;
+            let jobs: serde_json::Value = serde_json::from_str(&json)?;
             ok_json(serde_json::json!({ "jobs": jobs }))
         }
         "create" => {
-            let name = args["name"].as_str().unwrap_or("unnamed");
-            let schedule = args["schedule"].as_str().unwrap_or("0 * * * *");
-            let prompt = args["prompt"].as_str().unwrap_or("");
-            let id = uuid::Uuid::new_v4().to_string();
-            conn.execute(
-                "INSERT INTO cron_jobs (id, name, prompt, schedule, status, run_count) VALUES (?, ?, ?, ?, 'active', 0)",
-                rusqlite::params![id, name, prompt, schedule],
-            ).map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
-            ok_json(serde_json::json!({ "success": true, "id": id, "name": name }))
+            let input = serde_json::json!({
+                "name": args["name"].as_str().unwrap_or("unnamed"),
+                "prompt": args["prompt"].as_str().unwrap_or(""),
+                "schedule": args.get("schedule").cloned().unwrap_or(serde_json::json!({})),
+                "deliveryMode": args.get("deliveryMode").and_then(|v| v.as_str()).unwrap_or("notification"),
+            });
+            let record_json = crate::db::add_cron_job(&conn, &input.to_string())?;
+            let record: serde_json::Value = serde_json::from_str(&record_json)?;
+            ok_json(serde_json::json!({ "success": true, "id": record.get("id"), "name": record.get("name") }))
         }
         "delete" => {
             let id = args["id"].as_str().unwrap_or("");
-            conn.execute("DELETE FROM cron_jobs WHERE id = ?", rusqlite::params![id])
-                .map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
+            crate::db::remove_cron_job(&conn, id)?;
             ok_json(serde_json::json!({ "success": true, "id": id }))
         }
         "pause" => {
             let id = args["id"].as_str().unwrap_or("");
             conn.execute(
-                "UPDATE cron_jobs SET status = 'paused' WHERE id = ?",
-                rusqlite::params![id],
+                "UPDATE cron_jobs SET enabled = 0, updated_at = ? WHERE id = ?",
+                rusqlite::params![chrono::Utc::now().timestamp_millis(), id],
             )
             .map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
             ok_json(serde_json::json!({ "success": true, "status": "paused" }))
@@ -877,30 +866,41 @@ fn tool_manage_cron(
         "resume" => {
             let id = args["id"].as_str().unwrap_or("");
             conn.execute(
-                "UPDATE cron_jobs SET status = 'active' WHERE id = ?",
-                rusqlite::params![id],
+                "UPDATE cron_jobs SET enabled = 1, updated_at = ? WHERE id = ?",
+                rusqlite::params![chrono::Utc::now().timestamp_millis(), id],
             )
             .map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
             ok_json(serde_json::json!({ "success": true, "status": "active" }))
         }
         "history" => {
             let limit = args["limit"].as_u64().unwrap_or(20);
-            let query = if let Some(jid) = args["id"].as_str() {
-                format!("SELECT id, job_id, started_at, completed_at, error FROM cron_runs WHERE job_id = '{}' ORDER BY started_at DESC LIMIT {}", jid, limit)
-            } else {
-                format!("SELECT id, job_id, started_at, completed_at, error FROM cron_runs ORDER BY started_at DESC LIMIT {}", limit)
-            };
-            let mut stmt = conn
-                .prepare(&query)
-                .map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
-            let runs: Vec<serde_json::Value> = stmt.query_map([], |row| {
+            let job_filter = args["id"].as_str();
+            let row_mapper = |row: &rusqlite::Row| {
                 Ok(serde_json::json!({
-                    "id": row.get::<_, String>(0)?, "jobId": row.get::<_, String>(1)?,
-                    "startedAt": row.get::<_, String>(2)?, "completedAt": row.get::<_, Option<String>>(3)?,
+                    "id": row.get::<_, i64>(0)?,
+                    "jobId": row.get::<_, String>(1)?,
+                    "startedAt": row.get::<_, i64>(2)?,
+                    "endedAt": row.get::<_, Option<i64>>(3)?,
                     "error": row.get::<_, Option<String>>(4)?,
                 }))
-            }).map_err(|e| NativeAgentError::Database { msg: e.to_string() })?
-            .filter_map(|r| r.ok()).collect();
+            };
+            let runs: Vec<serde_json::Value> = if let Some(jid) = job_filter {
+                let mut stmt = conn.prepare(
+                    &format!("SELECT id, job_id, started_at, ended_at, error FROM cron_runs WHERE job_id = ? ORDER BY started_at DESC LIMIT {}", limit)
+                ).map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
+                let r: Vec<_> = stmt.query_map(rusqlite::params![jid], row_mapper)
+                    .map_err(|e| NativeAgentError::Database { msg: e.to_string() })?
+                    .filter_map(|r| r.ok()).collect();
+                r
+            } else {
+                let mut stmt = conn.prepare(
+                    &format!("SELECT id, job_id, started_at, ended_at, error FROM cron_runs ORDER BY started_at DESC LIMIT {}", limit)
+                ).map_err(|e| NativeAgentError::Database { msg: e.to_string() })?;
+                let r: Vec<_> = stmt.query_map([], row_mapper)
+                    .map_err(|e| NativeAgentError::Database { msg: e.to_string() })?
+                    .filter_map(|r| r.ok()).collect();
+                r
+            };
             ok_json(serde_json::json!({ "runs": runs }))
         }
         "status" => {
