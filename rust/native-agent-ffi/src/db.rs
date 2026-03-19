@@ -1096,6 +1096,8 @@ struct BackgroundEventFilter {
     job_name: String,
     delivery_mode: String,
     captured_text: std::sync::Mutex<String>,
+    /// Agent-initiated surfaces buffered during the turn — merged into auto_surface.
+    agent_surfaces: std::sync::Mutex<Vec<serde_json::Value>>,
 }
 
 impl BackgroundEventFilter {
@@ -1115,12 +1117,12 @@ impl BackgroundEventFilter {
             job_name,
             delivery_mode,
             captured_text: std::sync::Mutex::new(String::new()),
+            agent_surfaces: std::sync::Mutex::new(Vec::new()),
         }
     }
 
-    /// After agent turn completes, auto-surface the result.
-    /// Runs for ALL delivery modes except "none"/"silent" — every cron completion
-    /// gets an in-chat card so the user always has something to see.
+    /// After agent turn completes, emit ONE consolidated surface event.
+    /// Merges captured text (auto) with any agent-initiated surfaces into sections.
     fn auto_surface(&self, status: &str, duration_ms: i64, error: Option<&str>) {
         if self.delivery_mode == "none" || self.delivery_mode == "silent" {
             return;
@@ -1132,7 +1134,6 @@ impl BackgroundEventFilter {
             .map(|t| t.clone())
             .unwrap_or_default();
         let summary = if text.len() > 500 {
-            // Find a char boundary at or before byte 500 to avoid panic on multi-byte UTF-8
             let mut end = 500;
             while !text.is_char_boundary(end) && end > 0 {
                 end -= 1;
@@ -1142,24 +1143,79 @@ impl BackgroundEventFilter {
             text
         };
 
-        // 1. Persist to DB (survives app restart)
+        // Build sections array: agent-initiated surfaces + auto-captured response
+        let agent_surfaces = self
+            .agent_surfaces
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_default();
+
+        let mut sections = Vec::new();
+
+        // Auto section: the full captured response
+        if !summary.is_empty() || error.is_some() {
+            sections.push(serde_json::json!({
+                "source": "auto",
+                "summary": if summary.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(summary.clone()) },
+                "error": error,
+            }));
+        }
+
+        // Agent sections: conclusions/observations surfaced mid-execution
+        for surf in &agent_surfaces {
+            sections.push(serde_json::json!({
+                "source": "agent",
+                "title": surf.get("title"),
+                "summary": surf.get("summary"),
+                "priority": surf.get("priority").and_then(|p| p.as_str()).unwrap_or("normal"),
+            }));
+        }
+
+        // Use the first agent title if available, else job name
+        let title = agent_surfaces
+            .first()
+            .and_then(|s| s.get("title"))
+            .and_then(|t| t.as_str())
+            .map(|s| s.to_string());
+
+        // Persist ONE consolidated entry to DB
+        let combined_summary = if agent_surfaces.is_empty() {
+            summary.clone()
+        } else {
+            // Combine for DB persistence (flat text)
+            let mut parts = Vec::new();
+            if !summary.is_empty() {
+                parts.push(summary.clone());
+            }
+            for surf in &agent_surfaces {
+                if let Some(s) = surf.get("summary").and_then(|v| v.as_str()) {
+                    parts.push(s.to_string());
+                }
+            }
+            parts.join("\n\n---\n\n")
+        };
+
         if let Ok(conn) = open_db(&self.db_path) {
             let _ = save_surfaced_message(
                 &conn,
                 &self.job_id,
                 &self.job_name,
-                None,
-                &summary,
+                title.as_deref(),
+                &combined_summary,
                 "normal",
                 status,
                 duration_ms,
                 error,
-                "auto",
+                if agent_surfaces.is_empty() {
+                    "auto"
+                } else {
+                    "combined"
+                },
                 &format!("cron-{}", self.job_id),
             );
         }
 
-        // 2. Emit event (→ WebView if foregrounded, → PendingEventWriter if backgrounded)
+        // Emit ONE consolidated event with sections
         let payload = serde_json::json!({
             "jobId": self.job_id,
             "jobName": self.job_name,
@@ -1167,23 +1223,34 @@ impl BackgroundEventFilter {
             "durationMs": duration_ms,
             "summary": if summary.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(summary.clone()) },
             "error": error,
-            "source": "auto",
+            "source": if agent_surfaces.is_empty() { "auto" } else { "combined" },
+            "title": title,
+            "sections": sections,
             "timestamp": chrono::Utc::now().timestamp_millis(),
         });
         self.foreground
             .on_event("background.surface".to_string(), payload.to_string());
 
-        // 3. Push notification for "notification" and "surface" modes
+        // Push notification
         if matches!(self.delivery_mode.as_str(), "notification" | "surface") {
             if let Some(notifier) = &self.notifier {
-                let title = self.job_name.clone();
+                let notif_title = title
+                    .as_deref()
+                    .unwrap_or(&self.job_name)
+                    .to_string();
                 let body = if summary.is_empty() {
                     format!("{} completed.", self.job_name)
+                } else if summary.len() > 200 {
+                    let mut end = 200;
+                    while !summary.is_char_boundary(end) && end > 0 {
+                        end -= 1;
+                    }
+                    format!("{}…", &summary[..end])
                 } else {
                     summary
                 };
                 let _ = notifier.send_notification(
-                    title,
+                    notif_title,
                     body,
                     serde_json::json!({
                         "type": "cron_surface",
@@ -1214,28 +1281,14 @@ impl NativeEventCallback for BackgroundEventFilter {
             | "web_search_start" | "web_search_complete" | "max_turns_reached"
             | "agent.completed" | "agent.background_timeout" => {}
 
-            // FORWARD: agent-initiated surface (also persist to DB)
+            // BUFFER: agent-initiated surface — stored, merged into auto_surface later
             "background.surface" => {
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(&payload_json) {
-                    if let Ok(conn) = open_db(&self.db_path) {
-                        let _ = save_surfaced_message(
-                            &conn,
-                            &self.job_id,
-                            &self.job_name,
-                            v.get("title").and_then(|t| t.as_str()),
-                            v.get("summary").and_then(|s| s.as_str()).unwrap_or(""),
-                            v.get("priority")
-                                .and_then(|p| p.as_str())
-                                .unwrap_or("normal"),
-                            "ok",
-                            0,
-                            None,
-                            "agent",
-                            &format!("cron-{}", self.job_id),
-                        );
+                    if let Ok(mut surfaces) = self.agent_surfaces.lock() {
+                        surfaces.push(v);
                     }
                 }
-                self.foreground.on_event(event_type, payload_json);
+                // NOT forwarded — auto_surface() emits ONE consolidated event
             }
 
             // FORWARD + PUSH: approval requests tagged with cron context
