@@ -347,14 +347,12 @@ impl NativeAgentHandle {
         provider: Option<String>,
         model: Option<String>,
     ) -> Result<(), NativeAgentError> {
-        let messages_json = if let Some(json) = messages_json {
-            json
+        let messages: Vec<types::Message> = if let Some(json) = messages_json {
+            serde_json::from_str(&json)?
         } else {
             let conn = db::open_db(&self.config.db_path)?;
-            db::load_session_messages(&conn, &session_key)?
+            db::load_session_messages_raw(&conn, &session_key)?
         };
-
-        let messages: Vec<types::Message> = serde_json::from_str(&messages_json)?;
         let system_prompt = workspace::load_system_prompt(
             &self.config.workspace_path,
             &self.merged_tools_for_prompt(),
@@ -696,6 +694,16 @@ impl NativeAgentHandle {
                         allowed_tools_json: params_for_task.allowed_tools_json.clone(),
                         messages: turn_result.messages,
                     };
+
+                    // Build display JSON before moving messages into session state
+                    let display = types::DisplayMessage::from_messages(
+                        &next_session.messages,
+                        Some(&turn_result.model),
+                        Some(&turn_result.usage),
+                        chrono::Utc::now().timestamp_millis(),
+                    );
+                    let display_json = serde_json::to_string(&display).unwrap_or_else(|_| "[]".into());
+
                     *current_session.lock().await = Some(next_session);
 
                     if let Some(cb) = &callback {
@@ -704,6 +712,7 @@ impl NativeAgentHandle {
                             "sessionKey": params_for_task.session_key,
                             "usage": turn_result.usage,
                             "messagesJson": turn_result.messages_json,
+                            "displayMessagesJson": display_json,
                         });
                         cb.on_event("agent.completed".into(), payload.to_string());
                     }
@@ -952,6 +961,16 @@ impl NativeAgentHandle {
 
                     let mut next_session = session_state;
                     next_session.messages = turn_result.messages;
+
+                    // Build display JSON before moving session state
+                    let display = types::DisplayMessage::from_messages(
+                        &next_session.messages,
+                        Some(&turn_result.model),
+                        Some(&turn_result.usage),
+                        chrono::Utc::now().timestamp_millis(),
+                    );
+                    let display_json = serde_json::to_string(&display).unwrap_or_else(|_| "[]".into());
+
                     *current_session.lock().await = Some(next_session);
 
                     if let Some(cb) = &callback {
@@ -960,6 +979,7 @@ impl NativeAgentHandle {
                             "sessionKey": params_for_task.session_key,
                             "usage": turn_result.usage,
                             "messagesJson": turn_result.messages_json,
+                            "displayMessagesJson": display_json,
                         });
                         cb.on_event("agent.completed".into(), payload.to_string());
                     }

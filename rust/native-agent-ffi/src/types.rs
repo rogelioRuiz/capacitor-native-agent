@@ -259,3 +259,130 @@ pub struct SkillSession {
 }
 
 pub type SkillSessions = HashMap<String, SkillSession>;
+
+// ── Display types (provider-agnostic, UI-facing contract) ──
+
+/// A tool call in the canonical display format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayToolCall {
+    pub id: String,
+    pub name: String,
+    pub input: serde_json::Value,
+}
+
+/// A tool result in the canonical display format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayToolResult {
+    pub tool_call_id: String,
+    pub output: String,
+    #[serde(default)]
+    pub is_error: bool,
+}
+
+/// Provider-agnostic message for UI rendering and caching.
+///
+/// Every LLM driver (Anthropic, OpenAI, Gemini, etc.) converts its native
+/// response into this flat format. Everything downstream — bridge events,
+/// JS composables, SQLite cache — only ever sees `DisplayMessage`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayMessage {
+    pub role: String,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<DisplayToolCall>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_results: Vec<DisplayToolResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<TokenUsage>,
+    pub timestamp: i64,
+    pub sequence: u32,
+}
+
+impl DisplayMessage {
+    /// Convert internal `Message` array (provider-specific) into canonical `DisplayMessage` array.
+    pub fn from_messages(
+        msgs: &[Message],
+        model: Option<&str>,
+        usage: Option<&TokenUsage>,
+        base_timestamp: i64,
+    ) -> Vec<Self> {
+        let mut result = Vec::with_capacity(msgs.len());
+        let now = base_timestamp;
+
+        for (i, msg) in msgs.iter().enumerate() {
+            let role = match msg.role {
+                Role::User => "user",
+                Role::Assistant => "assistant",
+                Role::System => continue, // system messages are not displayed
+            };
+
+            match &msg.content {
+                MessageContent::Text(t) => {
+                    result.push(DisplayMessage {
+                        role: role.to_string(),
+                        text: t.clone(),
+                        tool_calls: Vec::new(),
+                        tool_results: Vec::new(),
+                        model: if msg.role == Role::Assistant { model.map(|s| s.to_string()) } else { None },
+                        usage: if msg.role == Role::Assistant { usage.cloned() } else { None },
+                        timestamp: now,
+                        sequence: i as u32,
+                    });
+                }
+                MessageContent::Blocks(blocks) => {
+                    let text: String = blocks
+                        .iter()
+                        .filter_map(|b| match b {
+                            ContentBlock::Text { text } => Some(text.as_str()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .join("");
+
+                    let tool_calls: Vec<DisplayToolCall> = blocks
+                        .iter()
+                        .filter_map(|b| match b {
+                            ContentBlock::ToolUse { id, name, input } => Some(DisplayToolCall {
+                                id: id.clone(),
+                                name: name.clone(),
+                                input: input.clone(),
+                            }),
+                            _ => None,
+                        })
+                        .collect();
+
+                    let tool_results: Vec<DisplayToolResult> = blocks
+                        .iter()
+                        .filter_map(|b| match b {
+                            ContentBlock::ToolResult {
+                                tool_use_id,
+                                content,
+                                is_error,
+                            } => Some(DisplayToolResult {
+                                tool_call_id: tool_use_id.clone(),
+                                output: content.clone(),
+                                is_error: *is_error,
+                            }),
+                            _ => None,
+                        })
+                        .collect();
+
+                    result.push(DisplayMessage {
+                        role: role.to_string(),
+                        text,
+                        tool_calls,
+                        tool_results,
+                        model: if msg.role == Role::Assistant { model.map(|s| s.to_string()) } else { None },
+                        usage: if msg.role == Role::Assistant { usage.cloned() } else { None },
+                        timestamp: now,
+                        sequence: i as u32,
+                    });
+                }
+            }
+        }
+
+        result
+    }
+}

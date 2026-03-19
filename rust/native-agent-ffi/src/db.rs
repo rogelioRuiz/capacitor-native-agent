@@ -3,7 +3,7 @@
 //! Reads/writes the same mobile-claw.db that the WebView uses (WAL mode for concurrent access).
 //! All CRUD operations mirror the JS CronDbAccess + SessionStore classes exactly.
 
-use crate::types::{InitConfig, PendingEvent};
+use crate::types::{DisplayMessage, InitConfig, Message, MessageContent, PendingEvent, Role, TokenUsage};
 use crate::{MemoryProvider, NativeAgentError, NativeEventCallback, NativeNotifier};
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
@@ -262,42 +262,70 @@ pub fn list_sessions(conn: &Connection, agent_id: &str) -> Result<String, Native
     Ok(serde_json::to_string(&sessions)?)
 }
 
+/// Load raw internal messages from DB (for LLM resume context).
+pub fn load_session_messages_raw(
+    conn: &Connection,
+    session_key: &str,
+) -> Result<Vec<Message>, NativeAgentError> {
+    let mut stmt = conn.prepare(
+        "SELECT role, content FROM messages WHERE session_key = ? ORDER BY sequence",
+    )?;
+    let messages: Vec<Message> = stmt
+        .query_map(params![session_key], |row| {
+            let role_str: String = row.get(0)?;
+            let content_str: String = row.get(1)?;
+            Ok((role_str, content_str))
+        })?
+        .filter_map(|r| r.ok())
+        .filter_map(|(role_str, content_str)| {
+            let role = match role_str.as_str() {
+                "user" => Role::User,
+                "assistant" => Role::Assistant,
+                "system" => Role::System,
+                _ => return None,
+            };
+            let content: MessageContent = serde_json::from_str(&content_str)
+                .unwrap_or_else(|_| MessageContent::Text(content_str));
+            Some(Message { role, content })
+        })
+        .collect();
+    Ok(messages)
+}
+
+/// Load session messages as provider-agnostic DisplayMessage[] JSON for the UI.
 pub fn load_session_messages(
     conn: &Connection,
     session_key: &str,
 ) -> Result<String, NativeAgentError> {
-    let mut stmt = conn.prepare(
-        "SELECT role, content, timestamp, model, tool_call_id, usage_input, usage_output
-         FROM messages WHERE session_key = ? ORDER BY sequence",
-    )?;
-    let messages: Vec<serde_json::Value> = stmt
-        .query_map(params![session_key], |row| {
-            let content_str: String = row.get(1)?;
-            let content = serde_json::from_str::<serde_json::Value>(&content_str)
-                .unwrap_or_else(|_| serde_json::Value::String(content_str));
-            let usage_input: Option<i64> = row.get(5)?;
-            let usage_output: Option<i64> = row.get(6)?;
-            let usage = if usage_input.is_some() || usage_output.is_some() {
-                Some(serde_json::json!({
-                    "input": usage_input.unwrap_or(0),
-                    "output": usage_output.unwrap_or(0),
-                }))
-            } else {
-                None
-            };
-            Ok(serde_json::json!({
-                "role": row.get::<_, String>(0)?,
-                "content": content,
-                "timestamp": row.get::<_, Option<i64>>(2)?,
-                "model": row.get::<_, Option<String>>(3)?,
-                "toolCallId": row.get::<_, Option<String>>(4)?,
-                "usage": usage,
-            }))
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
+    let raw = load_session_messages_raw(conn, session_key)?;
 
-    Ok(serde_json::to_string(&messages)?)
+    // Get model and usage from session metadata
+    let (model, usage) = conn
+        .query_row(
+            "SELECT model, input_tokens, output_tokens, total_tokens FROM sessions WHERE session_key = ?",
+            params![session_key],
+            |row| {
+                let m: Option<String> = row.get(0)?;
+                let inp: Option<i64> = row.get(1)?;
+                let out: Option<i64> = row.get(2)?;
+                let tot: Option<i64> = row.get(3)?;
+                let u = if inp.is_some() || out.is_some() {
+                    Some(TokenUsage {
+                        input_tokens: inp.unwrap_or(0) as u32,
+                        output_tokens: out.unwrap_or(0) as u32,
+                        total_tokens: tot.unwrap_or(0) as u32,
+                    })
+                } else {
+                    None
+                };
+                Ok((m, u))
+            },
+        )
+        .unwrap_or((None, None));
+
+    let now = chrono::Utc::now().timestamp_millis();
+    let display = DisplayMessage::from_messages(&raw, model.as_deref(), usage.as_ref(), now);
+    Ok(serde_json::to_string(&display)?)
 }
 
 pub fn clear_session(conn: &Connection, session_key: &str) -> Result<(), NativeAgentError> {
