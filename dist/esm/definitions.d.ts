@@ -236,6 +236,11 @@ export interface NativeAgentPlugin {
     }): Promise<{
         runsJson: string;
     }>;
+    loadSurfacedMessages(options: {
+        limit?: number;
+    }): Promise<{
+        messagesJson: string;
+    }>;
     handleWake(options: {
         source: string;
     }): Promise<void>;

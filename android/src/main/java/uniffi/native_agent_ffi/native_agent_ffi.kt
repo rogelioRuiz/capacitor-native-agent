@@ -903,6 +903,8 @@ internal open class UniffiVTableCallbackInterfaceNativeNotifier(
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -972,6 +974,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_list_tool_permissions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_session(`ptr`: Pointer,`sessionKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_surfaced_messages(`ptr`: Pointer,`limit`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_persist_config(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -1191,6 +1195,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_session(
     ): Short
+    fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_surfaced_messages(
+    ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_persist_config(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_refresh_token(
@@ -1341,6 +1347,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_session() != 39832.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_surfaced_messages() != 38563.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_persist_config() != 63110.toShort()) {
@@ -1889,6 +1898,11 @@ public interface NativeAgentHandleInterface {
      */
     fun `loadSession`(`sessionKey`: kotlin.String): kotlin.String
     
+    /**
+     * Load surfaced messages from background/cron jobs.
+     */
+    fun `loadSurfacedMessages`(`limit`: kotlin.Long): kotlin.String
+    
     fun `persistConfig`()
     
     /**
@@ -2428,6 +2442,22 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_session(
         it, FfiConverterString.lower(`sessionKey`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Load surfaced messages from background/cron jobs.
+     */
+    @Throws(NativeAgentException::class)override fun `loadSurfacedMessages`(`limit`: kotlin.Long): kotlin.String {
+            return FfiConverterString.lift(
+    callWithPointer {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_surfaced_messages(
+        it, FfiConverterLong.lower(`limit`),_status)
 }
     }
     )

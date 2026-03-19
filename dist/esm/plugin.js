@@ -25,6 +25,7 @@ class NativeAgentWeb extends WebPlugin {
     async listCronJobs() { throw this.unavailable(ERR); }
     async runCronJob() { throw this.unavailable(ERR); }
     async listCronRuns() { throw this.unavailable(ERR); }
+    async loadSurfacedMessages() { throw this.unavailable(ERR); }
     async handleWake() { throw this.unavailable(ERR); }
     async getSchedulerConfig() { throw this.unavailable(ERR); }
     async setSchedulerConfig() { throw this.unavailable(ERR); }

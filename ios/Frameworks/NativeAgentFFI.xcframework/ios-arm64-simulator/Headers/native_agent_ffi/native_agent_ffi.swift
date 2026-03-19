@@ -599,9 +599,19 @@ public protocol NativeAgentHandleProtocol : AnyObject {
     func listSkills() throws  -> String
     
     /**
+     * List all tool permissions as JSON array.
+     */
+    func listToolPermissions() throws  -> String
+    
+    /**
      * Load session message history.
      */
     func loadSession(sessionKey: String) throws  -> String
+    
+    /**
+     * Load surfaced messages from background/cron jobs.
+     */
+    func loadSurfacedMessages(limit: Int64) throws  -> String
     
     func persistConfig() throws 
     
@@ -619,6 +629,11 @@ public protocol NativeAgentHandleProtocol : AnyObject {
      * Remove a cron skill.
      */
     func removeSkill(id: String) throws 
+    
+    /**
+     * Delete all tool permissions (reset to defaults on next seed).
+     */
+    func resetToolPermissions() throws 
     
     /**
      * Respond to a tool approval request.
@@ -651,6 +666,11 @@ public protocol NativeAgentHandleProtocol : AnyObject {
     func runCronJob(jobId: String) throws 
     
     /**
+     * Seed tool permissions from defaults. INSERT OR IGNORE preserves user overrides.
+     */
+    func seedToolPermissions(defaultsJson: String) throws  -> UInt32
+    
+    /**
      * Send a message to the agent and start an agent loop turn.
      */
     func sendMessage(params: SendMessageParams) throws  -> String
@@ -678,6 +698,11 @@ public protocol NativeAgentHandleProtocol : AnyObject {
      * Set scheduler config.
      */
     func setSchedulerConfig(configJson: String) throws 
+    
+    /**
+     * Set a single tool's permission (upsert).
+     */
+    func setToolPermission(toolName: String, permission: String, enabled: Bool) throws 
     
     /**
      * Start MCP server with given tools.
@@ -974,12 +999,33 @@ open func listSkills()throws  -> String {
 }
     
     /**
+     * List all tool permissions as JSON array.
+     */
+open func listToolPermissions()throws  -> String {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_list_tool_permissions(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+    /**
      * Load session message history.
      */
 open func loadSession(sessionKey: String)throws  -> String {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_session(self.uniffiClonePointer(),
         FfiConverterString.lower(sessionKey),$0
+    )
+})
+}
+    
+    /**
+     * Load surfaced messages from background/cron jobs.
+     */
+open func loadSurfacedMessages(limit: Int64)throws  -> String {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_load_surfaced_messages(self.uniffiClonePointer(),
+        FfiConverterInt64.lower(limit),$0
     )
 })
 }
@@ -1017,6 +1063,15 @@ open func removeCronJob(id: String)throws  {try rustCallWithError(FfiConverterTy
 open func removeSkill(id: String)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_remove_skill(self.uniffiClonePointer(),
         FfiConverterString.lower(id),$0
+    )
+}
+}
+    
+    /**
+     * Delete all tool permissions (reset to defaults on next seed).
+     */
+open func resetToolPermissions()throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_reset_tool_permissions(self.uniffiClonePointer(),$0
     )
 }
 }
@@ -1092,6 +1147,17 @@ open func runCronJob(jobId: String)throws  {try rustCallWithError(FfiConverterTy
 }
     
     /**
+     * Seed tool permissions from defaults. INSERT OR IGNORE preserves user overrides.
+     */
+open func seedToolPermissions(defaultsJson: String)throws  -> UInt32 {
+    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_seed_tool_permissions(self.uniffiClonePointer(),
+        FfiConverterString.lower(defaultsJson),$0
+    )
+})
+}
+    
+    /**
      * Send a message to the agent and start an agent loop turn.
      */
 open func sendMessage(params: SendMessageParams)throws  -> String {
@@ -1154,6 +1220,18 @@ open func setNotifier(notifier: NativeNotifier)throws  {try rustCallWithError(Ff
 open func setSchedulerConfig(configJson: String)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_scheduler_config(self.uniffiClonePointer(),
         FfiConverterString.lower(configJson),$0
+    )
+}
+}
+    
+    /**
+     * Set a single tool's permission (upsert).
+     */
+open func setToolPermission(toolName: String, permission: String, enabled: Bool)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_tool_permission(self.uniffiClonePointer(),
+        FfiConverterString.lower(toolName),
+        FfiConverterString.lower(permission),
+        FfiConverterBool.lower(enabled),$0
     )
 }
 }
@@ -1609,13 +1687,20 @@ public struct SendMessageParams {
      * JSON-encoded list of allowed tool names. Empty = all tools.
      */
     public var allowedToolsJson: String?
+    /**
+     * JSON-encoded prior conversation messages for multi-turn sessions.
+     */
+    public var priorMessagesJson: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(prompt: String, sessionKey: String, model: String?, provider: String?, systemPrompt: String, maxTurns: UInt32?, 
         /**
          * JSON-encoded list of allowed tool names. Empty = all tools.
-         */allowedToolsJson: String?) {
+         */allowedToolsJson: String?, 
+        /**
+         * JSON-encoded prior conversation messages for multi-turn sessions.
+         */priorMessagesJson: String?) {
         self.prompt = prompt
         self.sessionKey = sessionKey
         self.model = model
@@ -1623,6 +1708,7 @@ public struct SendMessageParams {
         self.systemPrompt = systemPrompt
         self.maxTurns = maxTurns
         self.allowedToolsJson = allowedToolsJson
+        self.priorMessagesJson = priorMessagesJson
     }
 }
 
@@ -1651,6 +1737,9 @@ extension SendMessageParams: Equatable, Hashable {
         if lhs.allowedToolsJson != rhs.allowedToolsJson {
             return false
         }
+        if lhs.priorMessagesJson != rhs.priorMessagesJson {
+            return false
+        }
         return true
     }
 
@@ -1662,6 +1751,7 @@ extension SendMessageParams: Equatable, Hashable {
         hasher.combine(systemPrompt)
         hasher.combine(maxTurns)
         hasher.combine(allowedToolsJson)
+        hasher.combine(priorMessagesJson)
     }
 }
 
@@ -1679,7 +1769,8 @@ public struct FfiConverterTypeSendMessageParams: FfiConverterRustBuffer {
                 provider: FfiConverterOptionString.read(from: &buf), 
                 systemPrompt: FfiConverterString.read(from: &buf), 
                 maxTurns: FfiConverterOptionUInt32.read(from: &buf), 
-                allowedToolsJson: FfiConverterOptionString.read(from: &buf)
+                allowedToolsJson: FfiConverterOptionString.read(from: &buf), 
+                priorMessagesJson: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -1691,6 +1782,7 @@ public struct FfiConverterTypeSendMessageParams: FfiConverterRustBuffer {
         FfiConverterString.write(value.systemPrompt, into: &buf)
         FfiConverterOptionUInt32.write(value.maxTurns, into: &buf)
         FfiConverterOptionString.write(value.allowedToolsJson, into: &buf)
+        FfiConverterOptionString.write(value.priorMessagesJson, into: &buf)
     }
 }
 
@@ -2480,7 +2572,13 @@ private var initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_list_skills() != 14677) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_list_tool_permissions() != 48713) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_session() != 39832) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_load_surfaced_messages() != 38563) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_persist_config() != 63110) {
@@ -2493,6 +2591,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_remove_skill() != 49129) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_reset_tool_permissions() != 15060) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval() != 3194) {
@@ -2511,6 +2612,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_run_cron_job() != 11263) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_seed_tool_permissions() != 39225) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_send_message() != 53296) {
@@ -2532,6 +2636,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_scheduler_config() != 18609) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_tool_permission() != 8407) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_start_mcp() != 53972) {
