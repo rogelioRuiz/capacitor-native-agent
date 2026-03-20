@@ -117,9 +117,11 @@ class NativeAgentPlugin : Plugin() {
 
     @PluginMethod
     fun sendMessage(call: PluginCall) = withHandle(call) { h ->
+        val sessionKey = call.getString("sessionKey") ?: return@withHandle call.reject("sessionKey is required")
+        android.util.Log.i("TRACE:kt", "sendMessage sessionKey=$sessionKey")
         val params = SendMessageParams(
             prompt = call.getString("prompt") ?: return@withHandle call.reject("prompt is required"),
-            sessionKey = call.getString("sessionKey") ?: return@withHandle call.reject("sessionKey is required"),
+            sessionKey = sessionKey,
             model = call.getString("model"),
             provider = call.getString("provider"),
             systemPrompt = call.getString("systemPrompt") ?: "",
@@ -128,6 +130,7 @@ class NativeAgentPlugin : Plugin() {
             priorMessagesJson = call.getString("priorMessagesJson"),
         )
         val runId = h.sendMessage(params)
+        android.util.Log.i("TRACE:kt", "sendMessage OK runId=$runId")
         val ret = JSObject()
         ret.put("runId", runId)
         call.resolve(ret)
@@ -135,7 +138,10 @@ class NativeAgentPlugin : Plugin() {
 
     @PluginMethod
     fun followUp(call: PluginCall) = withHandle(call) { h ->
-        h.followUp(call.getString("prompt") ?: "")
+        val prompt = call.getString("prompt") ?: ""
+        android.util.Log.i("TRACE:kt", "followUp prompt_len=${prompt.length}")
+        h.followUp(prompt)
+        android.util.Log.i("TRACE:kt", "followUp OK")
         call.resolve()
     }
 
@@ -242,7 +248,10 @@ class NativeAgentPlugin : Plugin() {
 
     @PluginMethod
     fun listSessions(call: PluginCall) = withHandle(call) { h ->
-        val json = h.listSessions(call.getString("agentId") ?: "main")
+        val agentId = call.getString("agentId") ?: "main"
+        android.util.Log.i("TRACE:kt", "listSessions agentId=$agentId")
+        val json = h.listSessions(agentId)
+        android.util.Log.i("TRACE:kt", "listSessions result_len=${json.length}")
         val ret = JSObject()
         ret.put("sessionsJson", json)
         call.resolve(ret)
@@ -251,7 +260,9 @@ class NativeAgentPlugin : Plugin() {
     @PluginMethod
     fun loadSession(call: PluginCall) = withHandle(call) { h ->
         val sessKey = call.getString("sessionKey") ?: return@withHandle call.reject("sessionKey is required")
+        android.util.Log.i("TRACE:kt", "loadSession sessionKey=$sessKey")
         val json = h.loadSession(sessKey)
+        android.util.Log.i("TRACE:kt", "loadSession result_len=${json.length}")
         val ret = JSObject()
         ret.put("sessionKey", sessKey)
         ret.put("messagesJson", json)
@@ -260,14 +271,20 @@ class NativeAgentPlugin : Plugin() {
 
     @PluginMethod
     fun resumeSession(call: PluginCall) = withHandle(call) { h ->
-        h.resumeSession(
-            call.getString("sessionKey") ?: return@withHandle call.reject("sessionKey is required"),
-            call.getString("agentId") ?: "main",
+        val sessKey = call.getString("sessionKey") ?: return@withHandle call.reject("sessionKey is required")
+        val agentId = call.getString("agentId") ?: "main"
+        android.util.Log.i("TRACE:kt", "resumeSession sessionKey=$sessKey agentId=$agentId")
+        val wasInterrupted = h.resumeSession(
+            sessKey,
+            agentId,
             call.getString("messagesJson"),
             call.getString("provider"),
             call.getString("model"),
         )
-        call.resolve()
+        android.util.Log.i("TRACE:kt", "resumeSession OK wasInterrupted=$wasInterrupted")
+        val ret = com.getcapacitor.JSObject()
+        ret.put("wasInterrupted", wasInterrupted)
+        call.resolve(ret)
     }
 
     @PluginMethod

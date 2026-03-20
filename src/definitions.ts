@@ -231,7 +231,7 @@ export interface NativeAgentPlugin {
 
   listSessions(options: { agentId: string }): Promise<{ sessionsJson: string }>
   loadSession(options: { sessionKey: string; agentId: string }): Promise<SessionHistoryResult>
-  resumeSession(options: { sessionKey: string; agentId: string; messagesJson?: string; provider?: string; model?: string }): Promise<void>
+  resumeSession(options: { sessionKey: string; agentId: string; messagesJson?: string; provider?: string; model?: string }): Promise<{ wasInterrupted: boolean }>
   clearSession(): Promise<void>
 
   // ── Cron / heartbeat ──

@@ -3,7 +3,7 @@
 //! Reads/writes the same mobile-claw.db that the WebView uses (WAL mode for concurrent access).
 //! All CRUD operations mirror the JS CronDbAccess + SessionStore classes exactly.
 
-use crate::types::{DisplayMessage, InitConfig, Message, MessageContent, PendingEvent, Role, TokenUsage};
+use crate::types::{ContentBlock, DisplayMessage, InitConfig, Message, MessageContent, PendingEvent, Role, TokenUsage};
 use crate::{MemoryProvider, NativeAgentError, NativeEventCallback, NativeNotifier};
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
@@ -31,7 +31,8 @@ pub fn ensure_schema(conn: &Connection) -> Result<(), NativeAgentError> {
             model TEXT,
             total_tokens INTEGER DEFAULT 0,
             input_tokens INTEGER DEFAULT 0,
-            output_tokens INTEGER DEFAULT 0
+            output_tokens INTEGER DEFAULT 0,
+            turn_in_progress INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS messages (
@@ -183,6 +184,12 @@ pub fn ensure_schema(conn: &Connection) -> Result<(), NativeAgentError> {
         CREATE INDEX IF NOT EXISTS idx_surfaced_created ON surfaced_messages(created_at);
         "
     )?;
+
+    // Migration: add turn_in_progress to sessions for existing DBs
+    let _ = conn.execute_batch(
+        "ALTER TABLE sessions ADD COLUMN turn_in_progress INTEGER NOT NULL DEFAULT 0;"
+    );
+
     Ok(())
 }
 
@@ -207,26 +214,28 @@ pub fn save_session(
     let messages: Vec<serde_json::Value> = serde_json::from_str(messages_json).unwrap_or_default();
 
     conn.execute(
-        "INSERT INTO sessions (session_key, agent_id, created_at, updated_at, model, total_tokens, input_tokens, output_tokens)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        "INSERT INTO sessions (session_key, agent_id, created_at, updated_at, model, total_tokens, input_tokens, output_tokens, turn_in_progress)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)
          ON CONFLICT(session_key) DO UPDATE SET
            updated_at = excluded.updated_at,
            model = excluded.model,
            total_tokens = excluded.total_tokens,
            input_tokens = excluded.input_tokens,
-           output_tokens = excluded.output_tokens",
+           output_tokens = excluded.output_tokens,
+           turn_in_progress = 0",
         params![session_key, agent_id, start_time, now, model, total_tokens, input_tokens, output_tokens],
     )?;
 
-    // Count existing messages
-    let existing_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM messages WHERE session_key = ?",
+    // Atomic save: DELETE all existing messages then INSERT the complete current state.
+    // This replaces the old skip(existing_count) + INSERT OR IGNORE strategy which
+    // silently dropped newer message versions when concurrent turns overlapped.
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM messages WHERE session_key = ?1",
         params![session_key],
-        |row| row.get(0),
     )?;
 
-    // Insert new messages
-    for (i, msg) in messages.iter().enumerate().skip(existing_count as usize) {
+    for (i, msg) in messages.iter().enumerate() {
         let role = msg
             .get("role")
             .and_then(|r| r.as_str())
@@ -236,7 +245,7 @@ pub fn save_session(
             Some(v) => v.to_string(),
             None => String::new(),
         };
-        let timestamp = msg.get("timestamp").and_then(|t| t.as_i64()).unwrap_or(now);
+        let timestamp = msg.get("timestamp").and_then(|t| t.as_i64()).unwrap_or(now + i as i64);
         let msg_model = msg.get("model").and_then(|m| m.as_str());
         let tool_call_id = msg.get("toolCallId").and_then(|t| t.as_str());
         let usage_input = msg
@@ -248,14 +257,63 @@ pub fn save_session(
             .and_then(|u| u.get("output"))
             .and_then(|v| v.as_i64());
 
-        conn.execute(
-            "INSERT OR IGNORE INTO messages (session_key, sequence, role, content, timestamp, model, tool_call_id, usage_input, usage_output)
+        tx.execute(
+            "INSERT INTO messages (session_key, sequence, role, content, timestamp, model, tool_call_id, usage_input, usage_output)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![session_key, i as i64, role, content, timestamp, msg_model.or(model), tool_call_id, usage_input, usage_output],
         )?;
     }
 
+    tx.commit()?;
     Ok(())
+}
+
+/// Persist a single message incrementally during an agent turn.
+/// Uses INSERT OR REPLACE keyed on (session_key, sequence) so each message
+/// is saved as it's created — crash-safe without waiting for end-of-turn.
+pub fn persist_message(
+    conn: &Connection,
+    session_key: &str,
+    sequence: i64,
+    role: &str,
+    content: &str,
+    model: Option<&str>,
+) -> Result<(), NativeAgentError> {
+    let now = chrono::Utc::now().timestamp_millis();
+    conn.execute(
+        "INSERT OR REPLACE INTO messages (session_key, sequence, role, content, timestamp, model)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![session_key, sequence, role, content, now, model],
+    )?;
+    Ok(())
+}
+
+/// Mark a session's turn as in-progress or idle.
+pub fn set_turn_status(
+    conn: &Connection,
+    session_key: &str,
+    in_progress: bool,
+) -> Result<(), NativeAgentError> {
+    conn.execute(
+        "UPDATE sessions SET turn_in_progress = ?1 WHERE session_key = ?2",
+        params![in_progress as i32, session_key],
+    )?;
+    Ok(())
+}
+
+/// Check if a session has an interrupted turn (was killed mid-turn).
+pub fn get_turn_status(
+    conn: &Connection,
+    session_key: &str,
+) -> Result<bool, NativeAgentError> {
+    let in_progress: bool = conn
+        .query_row(
+            "SELECT turn_in_progress FROM sessions WHERE session_key = ?1",
+            params![session_key],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    Ok(in_progress)
 }
 
 pub fn list_sessions(conn: &Connection, agent_id: &str) -> Result<String, NativeAgentError> {
@@ -280,6 +338,13 @@ pub fn list_sessions(conn: &Connection, agent_id: &str) -> Result<String, Native
 }
 
 /// Load raw internal messages from DB (for LLM resume context).
+///
+/// After loading, validates tool_use/tool_result pairing. The Anthropic API
+/// requires every `tool_result` in a user message to reference a `tool_use`
+/// in the immediately preceding assistant message. Concurrent turns can
+/// cause orphaned tool_results in the DB (race between INSERT OR IGNORE
+/// and overlapping message indices). This function truncates at the first
+/// orphaned tool_result to prevent API 400 errors.
 pub fn load_session_messages_raw(
     conn: &Connection,
     session_key: &str,
@@ -287,7 +352,7 @@ pub fn load_session_messages_raw(
     let mut stmt = conn.prepare(
         "SELECT role, content FROM messages WHERE session_key = ? ORDER BY sequence",
     )?;
-    let messages: Vec<Message> = stmt
+    let mut messages: Vec<Message> = stmt
         .query_map(params![session_key], |row| {
             let role_str: String = row.get(0)?;
             let content_str: String = row.get(1)?;
@@ -306,7 +371,81 @@ pub fn load_session_messages_raw(
             Some(Message { role, content })
         })
         .collect();
+
+    sanitize_tool_pairing(&mut messages);
     Ok(messages)
+}
+
+/// Validate tool_use/tool_result pairing in a message sequence.
+///
+/// The Anthropic API requires that every `tool_result` block in a user
+/// message references a `tool_use` block in the immediately preceding
+/// assistant message. If an orphaned `tool_result` is found (its
+/// `tool_use_id` has no match), the message sequence is truncated at
+/// that point — everything from the orphaned message onward is dropped.
+fn sanitize_tool_pairing(messages: &mut Vec<Message>) {
+    use std::collections::HashSet;
+
+    let mut truncate_at: Option<usize> = None;
+
+    for i in 0..messages.len() {
+        if messages[i].role != Role::User {
+            continue;
+        }
+
+        // Collect tool_use_ids referenced by tool_result blocks in this user message
+        let referenced_ids: Vec<&str> = match &messages[i].content {
+            MessageContent::Blocks(blocks) => blocks
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::ToolResult { tool_use_id, .. } => Some(tool_use_id.as_str()),
+                    _ => None,
+                })
+                .collect(),
+            _ => continue,
+        };
+
+        if referenced_ids.is_empty() {
+            continue;
+        }
+
+        // Collect tool_use ids from the preceding assistant message
+        let prev_tool_use_ids: HashSet<&str> = if i > 0 {
+            match &messages[i - 1].content {
+                MessageContent::Blocks(blocks) => blocks
+                    .iter()
+                    .filter_map(|b| match b {
+                        ContentBlock::ToolUse { id, .. } => Some(id.as_str()),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => HashSet::new(),
+            }
+        } else {
+            HashSet::new()
+        };
+
+        // Check if any tool_result references a missing tool_use
+        let has_orphan = referenced_ids
+            .iter()
+            .any(|id| !prev_tool_use_ids.contains(id));
+
+        if has_orphan {
+            eprintln!(
+                "[WARN:db] sanitize_tool_pairing: orphaned tool_result at message {} — \
+                 referenced {:?} but previous assistant has {:?}. Truncating.",
+                i,
+                referenced_ids,
+                prev_tool_use_ids,
+            );
+            truncate_at = Some(i);
+            break;
+        }
+    }
+
+    if let Some(idx) = truncate_at {
+        messages.truncate(idx);
+    }
 }
 
 /// Load session messages as provider-agnostic DisplayMessage[] JSON for the UI.
@@ -314,7 +453,38 @@ pub fn load_session_messages(
     conn: &Connection,
     session_key: &str,
 ) -> Result<String, NativeAgentError> {
-    let raw = load_session_messages_raw(conn, session_key)?;
+    let mut stmt = conn.prepare(
+        "SELECT role, content, timestamp FROM messages WHERE session_key = ? ORDER BY sequence",
+    )?;
+
+    let mut raw_msgs: Vec<Message> = Vec::new();
+    let mut first_ts: Option<i64> = None;
+
+    let rows: Vec<(String, String, Option<i64>)> = stmt
+        .query_map(params![session_key], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<i64>>(2)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for (role_str, content_str, ts) in rows {
+        let role = match role_str.as_str() {
+            "user" => Role::User,
+            "assistant" => Role::Assistant,
+            "system" => Role::System,
+            _ => continue,
+        };
+        let content: MessageContent = serde_json::from_str(&content_str)
+            .unwrap_or_else(|_| MessageContent::Text(content_str));
+        raw_msgs.push(Message { role, content });
+        if first_ts.is_none() {
+            first_ts = ts;
+        }
+    }
 
     // Get model and usage from session metadata
     let (model, usage) = conn
@@ -340,8 +510,13 @@ pub fn load_session_messages(
         )
         .unwrap_or((None, None));
 
-    let now = chrono::Utc::now().timestamp_millis();
-    let display = DisplayMessage::from_messages(&raw, model.as_deref(), usage.as_ref(), now);
+    let base_ts = first_ts.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
+    let display = DisplayMessage::from_messages(
+        &raw_msgs,
+        model.as_deref(),
+        usage.as_ref(),
+        base_ts,
+    );
     Ok(serde_json::to_string(&display)?)
 }
 

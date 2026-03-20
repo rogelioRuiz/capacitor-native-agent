@@ -21,7 +21,7 @@ class NativeAgentWeb extends WebPlugin implements NativeAgentPlugin {
   async exchangeOAuthCode(): Promise<any> { throw this.unavailable(ERR) }
   async listSessions(): Promise<any> { throw this.unavailable(ERR) }
   async loadSession(): Promise<any> { throw this.unavailable(ERR) }
-  async resumeSession(): Promise<void> { throw this.unavailable(ERR) }
+  async resumeSession(): Promise<any> { throw this.unavailable(ERR) }
   async clearSession(): Promise<void> { throw this.unavailable(ERR) }
   async addCronJob(): Promise<any> { throw this.unavailable(ERR) }
   async updateCronJob(): Promise<void> { throw this.unavailable(ERR) }

@@ -309,7 +309,6 @@ impl DisplayMessage {
         base_timestamp: i64,
     ) -> Vec<Self> {
         let mut result = Vec::with_capacity(msgs.len());
-        let now = base_timestamp;
 
         for (i, msg) in msgs.iter().enumerate() {
             let role = match msg.role {
@@ -327,7 +326,7 @@ impl DisplayMessage {
                         tool_results: Vec::new(),
                         model: if msg.role == Role::Assistant { model.map(|s| s.to_string()) } else { None },
                         usage: if msg.role == Role::Assistant { usage.cloned() } else { None },
-                        timestamp: now,
+                        timestamp: base_timestamp + i as i64,
                         sequence: i as u32,
                     });
                 }
@@ -376,7 +375,7 @@ impl DisplayMessage {
                         tool_results,
                         model: if msg.role == Role::Assistant { model.map(|s| s.to_string()) } else { None },
                         usage: if msg.role == Role::Assistant { usage.cloned() } else { None },
-                        timestamp: now,
+                        timestamp: base_timestamp + i as i64,
                         sequence: i as u32,
                     });
                 }

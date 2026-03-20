@@ -210,7 +210,9 @@ export interface NativeAgentPlugin {
         messagesJson?: string;
         provider?: string;
         model?: string;
-    }): Promise<void>;
+    }): Promise<{
+        wasInterrupted: boolean;
+    }>;
     clearSession(): Promise<void>;
     addCronJob(options: {
         inputJson: string;

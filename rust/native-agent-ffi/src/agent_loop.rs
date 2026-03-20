@@ -23,6 +23,23 @@ const DEFAULT_MAX_TURNS: u32 = 25;
 const MAX_RETRIES: u32 = 2;
 const BASE_DELAY_MS: u64 = 2000;
 const MAX_DELAY_MS: u64 = 30000;
+
+/// Save a single message to the DB for crash recovery.
+fn save_message_incremental(db_path: &str, session_key: &str, msg: &Message, sequence: usize) {
+    let role = match msg.role {
+        crate::types::Role::User => "user",
+        crate::types::Role::Assistant => "assistant",
+        crate::types::Role::System => "system",
+    };
+    let content = match &msg.content {
+        MessageContent::Text(t) => t.clone(),
+        MessageContent::Blocks(blocks) => serde_json::to_string(blocks).unwrap_or_default(),
+    };
+    if let Ok(conn) = crate::db::open_db(db_path) {
+        let _ = crate::db::persist_message(&conn, session_key, sequence as i64, role, &content, None);
+    }
+}
+
 const ABORT_POLL_MS: u64 = 100;
 
 /// Result of an agent turn — usage + serialized messages for persistence.
@@ -81,6 +98,7 @@ pub async fn run_agent_turn(
 
     if !ctx.params.prompt.trim().is_empty() {
         messages.push(Message::user(&ctx.params.prompt));
+        save_message_incremental(&ctx.config.db_path, &ctx.session_key, messages.last().unwrap(), messages.len() - 1);
         if !ctx.skip_user_echo {
             event_bus::emit(
                 callback,
@@ -137,6 +155,7 @@ pub async fn run_agent_turn(
         cumulative_usage.total_tokens += response.usage.total_tokens;
 
         messages.push(Message::assistant_blocks(response.content.clone()));
+        save_message_incremental(&ctx.config.db_path, &ctx.session_key, messages.last().unwrap(), messages.len() - 1);
         turn_count += 1;
 
         if response.stop_reason != StopReason::ToolUse || response.tool_calls.is_empty() {
@@ -280,6 +299,7 @@ pub async fn run_agent_turn(
             role: crate::types::Role::User,
             content: MessageContent::Blocks(tool_results),
         });
+        save_message_incremental(&ctx.config.db_path, &ctx.session_key, messages.last().unwrap(), messages.len() - 1);
     }
 
     let messages_json = serde_json::to_string(&messages).unwrap_or_else(|_| "[]".to_string());

@@ -104,6 +104,9 @@ pub struct NativeAgentHandle {
     notifier: Arc<Mutex<Option<Arc<dyn NativeNotifier>>>>,
     memory_provider: Arc<Mutex<Option<Arc<dyn MemoryProvider>>>>,
     abort_flag: Arc<Mutex<bool>>,
+    /// Serializes main agent turns — at most one turn runs at a time.
+    /// A second `follow_up()` blocks at `acquire()` until the first completes.
+    turn_semaphore: Arc<tokio::sync::Semaphore>,
     current_session: Arc<Mutex<Option<types::SessionState>>>,
     approval_sender: Arc<Mutex<Option<oneshot::Sender<types::ApprovalResponse>>>>,
     cron_approval_sender: Arc<Mutex<Option<oneshot::Sender<bool>>>>,
@@ -180,6 +183,8 @@ impl NativeAgentHandle {
             .prior_messages_json
             .as_deref()
             .and_then(|json| serde_json::from_str(json).ok());
+        let prior_count = prior_messages.as_ref().map(|m| m.len()).unwrap_or(0);
+        eprintln!("[TRACE:rust] send_message session_key={} prior_messages={}", params.session_key, prior_count);
         let params = self.prepare_params(params)?;
         let session_state = self.session_state_from_params(
             &params,
@@ -196,11 +201,13 @@ impl NativeAgentHandle {
             .runtime
             .block_on(async { self.current_session.lock().await.clone() });
         let Some(session) = session else {
+            eprintln!("[TRACE:rust] follow_up FAILED — no current_session in memory");
             return Err(NativeAgentError::Agent {
                 msg: "No current session to follow up".to_string(),
             });
         };
 
+        eprintln!("[TRACE:rust] follow_up session_key={} accumulated_messages={}", session.session_key, session.messages.len());
         let params = self.prepare_params(session.to_params(prompt))?;
         let session_state = self.session_state_from_params(&params, session.messages.clone());
         self.spawn_main_turn(params, Some(session.messages), session_state)?;
@@ -328,17 +335,25 @@ impl NativeAgentHandle {
 
     /// List sessions for an agent.
     pub fn list_sessions(&self, agent_id: String) -> Result<String, NativeAgentError> {
+        eprintln!("[TRACE:rust] list_sessions agent_id={}", agent_id);
         let conn = db::open_db(&self.config.db_path)?;
-        db::list_sessions(&conn, &agent_id)
+        let result = db::list_sessions(&conn, &agent_id)?;
+        eprintln!("[TRACE:rust] list_sessions result_len={}", result.len());
+        Ok(result)
     }
 
     /// Load session message history.
     pub fn load_session(&self, session_key: String) -> Result<String, NativeAgentError> {
+        eprintln!("[TRACE:rust] load_session session_key={}", session_key);
         let conn = db::open_db(&self.config.db_path)?;
-        db::load_session_messages(&conn, &session_key)
+        let result = db::load_session_messages(&conn, &session_key)?;
+        eprintln!("[TRACE:rust] load_session result_len={}", result.len());
+        Ok(result)
     }
 
     /// Resume a session (load messages into agent context).
+    /// Returns `was_interrupted: true` if the session had an in-progress turn
+    /// that was killed (e.g. app force-close). The caller can auto-resume.
     pub fn resume_session(
         &self,
         session_key: String,
@@ -346,13 +361,29 @@ impl NativeAgentHandle {
         messages_json: Option<String>,
         provider: Option<String>,
         model: Option<String>,
-    ) -> Result<(), NativeAgentError> {
+    ) -> Result<bool, NativeAgentError> {
+        let conn = db::open_db(&self.config.db_path)?;
+        let was_interrupted = db::get_turn_status(&conn, &session_key).unwrap_or(false);
+
+        let from_json = messages_json.is_some();
         let messages: Vec<types::Message> = if let Some(json) = messages_json {
             serde_json::from_str(&json)?
         } else {
-            let conn = db::open_db(&self.config.db_path)?;
             db::load_session_messages_raw(&conn, &session_key)?
         };
+        eprintln!("[TRACE:rust] resume_session session_key={} agent_id={} from_json={} message_count={} was_interrupted={}", session_key, agent_id, from_json, messages.len(), was_interrupted);
+
+        // Clear the interrupted flag and notify the frontend
+        if was_interrupted {
+            let _ = db::set_turn_status(&conn, &session_key, false);
+            if let Some(cb) = self.callback_clone() {
+                let payload = serde_json::json!({
+                    "sessionKey": session_key,
+                });
+                cb.on_event("session.interrupted".into(), payload.to_string());
+            }
+        }
+
         let system_prompt = workspace::load_system_prompt(
             &self.config.workspace_path,
             &self.merged_tools_for_prompt(),
@@ -371,7 +402,7 @@ impl NativeAgentHandle {
                 messages,
             });
         });
-        Ok(())
+        Ok(was_interrupted)
     }
 
     /// Clear the current in-memory session state so the next sendMessage
@@ -834,6 +865,7 @@ impl NativeAgentHandle {
             notifier: Arc::new(Mutex::new(None)),
             memory_provider: Arc::new(Mutex::new(None)),
             abort_flag: Arc::new(Mutex::new(false)),
+            turn_semaphore: Arc::new(tokio::sync::Semaphore::new(1)),
             current_session: Arc::new(Mutex::new(None)),
             approval_sender: Arc::new(Mutex::new(None)),
             cron_approval_sender: Arc::new(Mutex::new(None)),
@@ -930,8 +962,16 @@ impl NativeAgentHandle {
         let current_session = self.current_session.clone();
         let params_for_task = params.clone();
         let run_id_for_task = run_id.clone();
+        let turn_semaphore = self.turn_semaphore.clone();
 
         self.runtime.spawn(async move {
+            let _permit = turn_semaphore.acquire().await.unwrap();
+
+            // Mark turn as in-progress for crash recovery
+            if let Ok(conn) = db::open_db(&config.db_path) {
+                let _ = db::set_turn_status(&conn, &params_for_task.session_key, true);
+            }
+
             let start_time = chrono::Utc::now().timestamp_millis();
             let result = agent_loop::run_agent_turn(agent_loop::AgentLoopContext {
                 config: &config,
@@ -976,6 +1016,14 @@ impl NativeAgentHandle {
                         chrono::Utc::now().timestamp_millis(),
                     );
                     let display_json = serde_json::to_string(&display).unwrap_or_else(|_| "[]".into());
+
+                    eprintln!(
+                        "[TRACE:rust] spawn_main_turn COMPLETED session_key={} total_messages={} display_count={} roles={:?}",
+                        params_for_task.session_key,
+                        next_session.messages.len(),
+                        display.len(),
+                        display.iter().map(|d| d.role.as_str()).collect::<Vec<_>>()
+                    );
 
                     *current_session.lock().await = Some(next_session);
 
