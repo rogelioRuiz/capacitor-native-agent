@@ -996,7 +996,7 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_restart_mcp(`ptr`: Pointer,`toolsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(`ptr`: Pointer,`sessionKey`: RustBuffer.ByValue,`agentId`: RustBuffer.ByValue,`messagesJson`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`model`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
+    ): Byte
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_run_cron_job(`ptr`: Pointer,`jobId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_seed_tool_permissions(`ptr`: Pointer,`defaultsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1379,7 +1379,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_restart_mcp() != 8963.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_resume_session() != 34699.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_resume_session() != 1498.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_run_cron_job() != 11263.toShort()) {
@@ -1947,8 +1947,10 @@ public interface NativeAgentHandleInterface {
     
     /**
      * Resume a session (load messages into agent context).
+     * Returns `was_interrupted: true` if the session had an in-progress turn
+     * that was killed (e.g. app force-close). The caller can auto-resume.
      */
-    fun `resumeSession`(`sessionKey`: kotlin.String, `agentId`: kotlin.String, `messagesJson`: kotlin.String?, `provider`: kotlin.String?, `model`: kotlin.String?)
+    fun `resumeSession`(`sessionKey`: kotlin.String, `agentId`: kotlin.String, `messagesJson`: kotlin.String?, `provider`: kotlin.String?, `model`: kotlin.String?): kotlin.Boolean
     
     /**
      * Force-trigger a cron job.
@@ -2601,16 +2603,19 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     
     /**
      * Resume a session (load messages into agent context).
+     * Returns `was_interrupted: true` if the session had an in-progress turn
+     * that was killed (e.g. app force-close). The caller can auto-resume.
      */
-    @Throws(NativeAgentException::class)override fun `resumeSession`(`sessionKey`: kotlin.String, `agentId`: kotlin.String, `messagesJson`: kotlin.String?, `provider`: kotlin.String?, `model`: kotlin.String?)
-        = 
+    @Throws(NativeAgentException::class)override fun `resumeSession`(`sessionKey`: kotlin.String, `agentId`: kotlin.String, `messagesJson`: kotlin.String?, `provider`: kotlin.String?, `model`: kotlin.String?): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
     callWithPointer {
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(
         it, FfiConverterString.lower(`sessionKey`),FfiConverterString.lower(`agentId`),FfiConverterOptionalString.lower(`messagesJson`),FfiConverterOptionalString.lower(`provider`),FfiConverterOptionalString.lower(`model`),_status)
 }
     }
-    
+    )
+    }
     
 
     
