@@ -18,11 +18,25 @@ pub fn emit(
 }
 
 /// Emit a text_delta event.
-pub fn emit_text_delta(callback: Option<&dyn NativeEventCallback>, text: &str, session_key: &str) {
+///
+/// `message_index` is the index in the internal messages array where the
+/// assistant response will be stored.  JS uses this to compute the same
+/// deterministic UUID (`{sessionKey}-msg-{messageIndex}`) that Rust puts
+/// in DisplayMessage, so Vue can patch components in-place on completion.
+pub fn emit_text_delta(
+    callback: Option<&dyn NativeEventCallback>,
+    text: &str,
+    session_key: &str,
+    message_index: u32,
+) {
     emit(
         callback,
         "text_delta",
-        &serde_json::json!({ "text": text, "sessionKey": session_key }),
+        &serde_json::json!({
+            "text": text,
+            "sessionKey": session_key,
+            "messageIndex": message_index,
+        }),
     );
 }
 

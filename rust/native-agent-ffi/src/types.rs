@@ -298,6 +298,10 @@ pub struct DisplayMessage {
     pub usage: Option<TokenUsage>,
     pub timestamp: i64,
     pub sequence: u32,
+    /// Deterministic ID: `{session_key}-msg-{internal_index}`.
+    /// Matches the UUID that JS assigns during streaming so Vue can
+    /// patch components in-place instead of unmount/remount on completion.
+    pub uuid: String,
 }
 
 impl DisplayMessage {
@@ -307,6 +311,7 @@ impl DisplayMessage {
         model: Option<&str>,
         usage: Option<&TokenUsage>,
         base_timestamp: i64,
+        session_key: &str,
     ) -> Vec<Self> {
         let mut result = Vec::with_capacity(msgs.len());
 
@@ -328,6 +333,7 @@ impl DisplayMessage {
                         usage: if msg.role == Role::Assistant { usage.cloned() } else { None },
                         timestamp: base_timestamp + i as i64,
                         sequence: i as u32,
+                        uuid: format!("{}-msg-{}", session_key, i),
                     });
                 }
                 MessageContent::Blocks(blocks) => {
@@ -377,6 +383,7 @@ impl DisplayMessage {
                         usage: if msg.role == Role::Assistant { usage.cloned() } else { None },
                         timestamp: base_timestamp + i as i64,
                         sequence: i as u32,
+                        uuid: format!("{}-msg-{}", session_key, i),
                     });
                 }
             }

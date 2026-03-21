@@ -516,6 +516,7 @@ pub fn load_session_messages(
         model.as_deref(),
         usage.as_ref(),
         base_ts,
+        session_key,
     );
     Ok(serde_json::to_string(&display)?)
 }

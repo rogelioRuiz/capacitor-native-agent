@@ -148,7 +148,10 @@ pub async fn run_agent_turn(
             system: Some(ctx.params.system_prompt.clone()),
         };
 
-        let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag, &ctx.session_key).await?;
+        // The assistant response will be appended at this index — pass to
+        // streaming events so JS can compute the same deterministic UUID.
+        let next_msg_idx = messages.len() as u32;
+        let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag, &ctx.session_key, next_msg_idx).await?;
 
         cumulative_usage.input_tokens += response.usage.input_tokens;
         cumulative_usage.output_tokens += response.usage.output_tokens;
@@ -511,6 +514,7 @@ async fn call_with_retry(
     callback: Option<&dyn NativeEventCallback>,
     abort_flag: &Arc<Mutex<bool>>,
     session_key: &str,
+    message_index: u32,
 ) -> Result<crate::llm_driver::CompletionResponse, NativeAgentError> {
     let mut last_error: Option<LlmError> = None;
     let sk = session_key.to_string();
@@ -519,7 +523,7 @@ async fn call_with_retry(
         ensure_not_aborted(abort_flag).await?;
 
         let on_event = |event: StreamEvent| match &event {
-            StreamEvent::TextDelta(text) => event_bus::emit_text_delta(callback, text, &sk),
+            StreamEvent::TextDelta(text) => event_bus::emit_text_delta(callback, text, &sk, message_index),
             StreamEvent::ThinkingDelta(text) => event_bus::emit_thinking(callback, text, &sk),
             StreamEvent::ToolUseStart { .. } => {}
             StreamEvent::ToolUseEnd { .. } => {}

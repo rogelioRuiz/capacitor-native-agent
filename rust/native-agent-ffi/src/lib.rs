@@ -738,6 +738,7 @@ impl NativeAgentHandle {
                         Some(&turn_result.model),
                         Some(&turn_result.usage),
                         chrono::Utc::now().timestamp_millis(),
+                        &params_for_task.session_key,
                     );
                     let display_json = serde_json::to_string(&display).unwrap_or_else(|_| "[]".into());
 
@@ -1014,6 +1015,7 @@ impl NativeAgentHandle {
                         Some(&turn_result.model),
                         Some(&turn_result.usage),
                         chrono::Utc::now().timestamp_millis(),
+                        &params_for_task.session_key,
                     );
                     let display_json = serde_json::to_string(&display).unwrap_or_else(|_| "[]".into());
 
