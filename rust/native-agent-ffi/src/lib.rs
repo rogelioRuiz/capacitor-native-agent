@@ -81,6 +81,39 @@ pub trait MemoryProvider: Send + Sync {
     fn list(&self, prefix: Option<String>, limit: Option<u32>) -> String;
 }
 
+/// Optional governance provider for security, audit, and loop-guard checks.
+/// Implemented by Kotlin/Swift — typically backed by capacitor-agent-os when
+/// that plugin is installed. When absent, the agent loop runs without
+/// governance checks.
+#[uniffi::export(callback_interface)]
+pub trait GovernanceProvider: Send + Sync {
+    /// Check if a tool call should proceed. Returns JSON verdict:
+    /// `{"type":"Allow"}` | `{"type":"Warn","reason":"..."}` |
+    /// `{"type":"Block","reason":"..."}` | `{"type":"CircuitBreak","reason":"..."}`
+    fn check_loop(&self, tool_name: String, params_json: String) -> String;
+
+    /// Record tool outcome for loop detection. Returns optional warning string.
+    fn record_outcome(
+        &self,
+        tool_name: String,
+        params_json: String,
+        result: String,
+    ) -> Option<String>;
+
+    /// Record an audit trail entry.
+    fn record_audit(&self, agent_id: String, action: String, detail: String, outcome: String);
+
+    /// Check if content is tainted before passing to LLM. Returns JSON:
+    /// `{"blocked":true/false,"reason":"...","matchedLabels":[...]}`
+    fn check_sink(&self, sink_type: String, content: String) -> String;
+
+    /// Reset loop guard state (e.g. on new session).
+    fn reset(&self);
+
+    /// Record token usage for cost tracking.
+    fn record_usage(&self, model_id: String, input_tokens: u32, output_tokens: u32);
+}
+
 /// Standalone workspace initialization for cold-start paths.
 #[uniffi::export]
 pub fn init_workspace(config: types::InitConfig) -> Result<(), NativeAgentError> {
@@ -103,6 +136,7 @@ pub struct NativeAgentHandle {
     event_callback: Arc<Mutex<Option<Arc<dyn NativeEventCallback>>>>,
     notifier: Arc<Mutex<Option<Arc<dyn NativeNotifier>>>>,
     memory_provider: Arc<Mutex<Option<Arc<dyn MemoryProvider>>>>,
+    governance: Arc<Mutex<Option<Arc<dyn GovernanceProvider>>>>,
     abort_flag: Arc<Mutex<bool>>,
     /// Serializes main agent turns — at most one turn runs at a time.
     /// A second `follow_up()` blocks at `acquire()` until the first completes.
@@ -159,6 +193,19 @@ impl NativeAgentHandle {
     ) -> Result<(), NativeAgentError> {
         self.runtime.block_on(async {
             let mut current = self.memory_provider.lock().await;
+            *current = Some(Arc::from(provider));
+        });
+        Ok(())
+    }
+
+    /// Set the optional governance provider (taint, audit, loop-guard, cost tracking).
+    /// Typically called by capacitor-agent-os when it auto-registers at init time.
+    pub fn set_governance_provider(
+        &self,
+        provider: Box<dyn GovernanceProvider>,
+    ) -> Result<(), NativeAgentError> {
+        self.runtime.block_on(async {
+            let mut current = self.governance.lock().await;
             *current = Some(Arc::from(provider));
         });
         Ok(())
@@ -478,6 +525,7 @@ impl NativeAgentHandle {
         let callback = self.callback_clone();
         let notifier = self.notifier_clone();
         let memory_provider = self.memory_provider_clone();
+        let governance = self.governance_clone();
         let abort_flag = self.abort_flag.clone();
         let approval_sender = self.approval_sender.clone();
         let steer_rx = self.steer_rx.clone();
@@ -491,6 +539,7 @@ impl NativeAgentHandle {
                 callback,
                 notifier,
                 memory_provider,
+                governance,
                 abort_flag,
                 approval_sender,
                 steer_rx,
@@ -689,6 +738,7 @@ impl NativeAgentHandle {
         let mcp_tools = self.mcp_tools.clone();
         let mcp_pending = self.mcp_pending.clone();
         let memory_provider = self.memory_provider_clone();
+        let governance = self.governance_clone();
         let active_skills = self.active_skills.clone();
         let current_session = self.current_session.clone();
         let skill_id_for_task = skill_id.clone();
@@ -709,6 +759,7 @@ impl NativeAgentHandle {
                 mcp_tools,
                 mcp_pending,
                 memory_provider: memory_provider.clone(),
+                governance: governance.clone(),
                 skip_user_echo: true, // Skill kickoff — hide internal instruction from chat
                 session_key: params_for_task.session_key.clone(),
             })
@@ -874,6 +925,7 @@ impl NativeAgentHandle {
             event_callback: Arc::new(Mutex::new(None)),
             notifier: Arc::new(Mutex::new(None)),
             memory_provider: Arc::new(Mutex::new(None)),
+            governance: Arc::new(Mutex::new(None)),
             abort_flag: Arc::new(Mutex::new(false)),
             turn_semaphore: Arc::new(tokio::sync::Semaphore::new(1)),
             current_session: Arc::new(Mutex::new(None)),
@@ -900,6 +952,11 @@ impl NativeAgentHandle {
     fn memory_provider_clone(&self) -> Option<Arc<dyn MemoryProvider>> {
         self.runtime
             .block_on(async { self.memory_provider.lock().await.clone() })
+    }
+
+    fn governance_clone(&self) -> Option<Arc<dyn GovernanceProvider>> {
+        self.runtime
+            .block_on(async { self.governance.lock().await.clone() })
     }
 
     fn reset_abort_flag(&self, abort_flag: &Arc<Mutex<bool>>) {
@@ -969,6 +1026,7 @@ impl NativeAgentHandle {
         let mcp_tools = self.mcp_tools.clone();
         let mcp_pending = self.mcp_pending.clone();
         let memory_provider = self.memory_provider_clone();
+        let governance = self.governance_clone();
         let current_session = self.current_session.clone();
         let params_for_task = params.clone();
         let run_id_for_task = run_id.clone();
@@ -996,6 +1054,7 @@ impl NativeAgentHandle {
                 mcp_tools,
                 mcp_pending,
                 memory_provider: memory_provider.clone(),
+                governance: governance.clone(),
                 skip_user_echo: false,
                 session_key: params_for_task.session_key.clone(),
             })

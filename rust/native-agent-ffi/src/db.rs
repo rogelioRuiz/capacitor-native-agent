@@ -1712,6 +1712,7 @@ pub async fn handle_wake(
     callback: Option<Arc<dyn NativeEventCallback>>,
     notifier: Option<Arc<dyn NativeNotifier>>,
     memory_provider: Option<Arc<dyn MemoryProvider>>,
+    governance: Option<Arc<dyn crate::GovernanceProvider>>,
     abort_flag: Arc<Mutex<bool>>,
     approval_sender: Arc<Mutex<Option<oneshot::Sender<crate::types::ApprovalResponse>>>>,
     steer_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<String>>>>,
@@ -1805,6 +1806,7 @@ pub async fn handle_wake(
             mcp_tools: mcp_tools.clone(),
             mcp_pending: mcp_pending.clone(),
             memory_provider: memory_provider.clone(),
+            governance: governance.clone(),
             skip_user_echo: false,
             session_key: params.session_key.clone(),
         })

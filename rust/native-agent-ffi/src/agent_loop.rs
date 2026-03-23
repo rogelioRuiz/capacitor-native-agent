@@ -11,6 +11,7 @@ use crate::types::{
     SendMessageParams, StopReason, TokenUsage, ToolDefinition,
 };
 use crate::NativeAgentError;
+use crate::GovernanceProvider;
 use crate::MemoryProvider;
 use crate::NativeEventCallback;
 use std::collections::{HashMap, HashSet};
@@ -63,6 +64,7 @@ pub struct AgentLoopContext<'a> {
     pub mcp_tools: Arc<Mutex<Vec<ToolDefinition>>>,
     pub mcp_pending: Arc<Mutex<HashMap<String, oneshot::Sender<McpToolResult>>>>,
     pub memory_provider: Option<Arc<dyn MemoryProvider>>,
+    pub governance: Option<Arc<dyn GovernanceProvider>>,
     /// When true, suppress the `user_message` event for the prompt.
     /// Used by skill kickoffs to hide the internal instruction from the chat UI.
     pub skip_user_echo: bool,
@@ -220,6 +222,49 @@ pub async fn run_agent_turn(
                 continue;
             }
 
+            // Governance: loop-guard check before tool execution
+            if let Some(gov) = &ctx.governance {
+                let params_json = serde_json::to_string(&tool_call.input).unwrap_or_default();
+                let verdict_json = gov.check_loop(tool_call.name.clone(), params_json);
+                if let Ok(verdict) = serde_json::from_str::<serde_json::Value>(&verdict_json) {
+                    let vtype = verdict["type"].as_str().unwrap_or("Allow");
+                    if vtype == "Block" || vtype == "CircuitBreak" {
+                        let reason = verdict["reason"].as_str().unwrap_or("loop detected").to_string();
+                        let content = format!("Tool \"{}\" blocked: {}. Try a different approach.", tool_call.name, reason);
+                        gov.record_audit(
+                            ctx.session_key.clone(),
+                            "ToolInvoke".to_string(),
+                            format!("{}:{}", tool_call.name, &tool_call.input.to_string().get(..500).unwrap_or(&tool_call.input.to_string())),
+                            format!("denied:loop_guard:{}", vtype.to_lowercase()),
+                        );
+                        event_bus::emit_tool_result(
+                            callback,
+                            &tool_call.name,
+                            &tool_call.id,
+                            &serde_json::json!({ "content": content, "isError": true }),
+                            &ctx.session_key,
+                        );
+                        tool_results.push(ContentBlock::ToolResult {
+                            tool_use_id: tool_call.id.clone(),
+                            content,
+                            is_error: true,
+                        });
+                        continue;
+                    }
+                    if vtype == "Warn" {
+                        event_bus::emit(
+                            callback,
+                            "loop_warning",
+                            &serde_json::json!({
+                                "toolName": tool_call.name,
+                                "reason": verdict["reason"],
+                                "sessionKey": ctx.session_key,
+                            }),
+                        );
+                    }
+                }
+            }
+
             if requires_approval(&tool_call.name, skill_tools.as_ref(), &db_permissions) {
                 let require_biometric = db_permissions.get(&tool_call.name)
                     .map(|(p, _)| p == "always_ask_biometric")
@@ -256,7 +301,7 @@ pub async fn run_agent_turn(
                 }
             }
 
-            let (content, is_error) = if tool_runner::is_builtin_tool(&tool_call.name) {
+            let (mut content, is_error) = if tool_runner::is_builtin_tool(&tool_call.name) {
                 match tool_runner::execute_tool(
                     &tool_call.name,
                     &tool_call.input,
@@ -282,6 +327,48 @@ pub async fn run_agent_turn(
                 .await?;
                 (result.result_json, result.is_error)
             };
+
+            // Governance: post-execution audit, outcome recording, and taint check
+            if let Some(gov) = &ctx.governance {
+                let params_str = tool_call.input.to_string();
+                let params_truncated = params_str.get(..500).unwrap_or(&params_str);
+                let result_truncated = content.get(..500).unwrap_or(&content).to_string();
+
+                if !is_error {
+                    gov.record_audit(
+                        ctx.session_key.clone(),
+                        "ToolInvoke".to_string(),
+                        format!("{}:{}", tool_call.name, params_truncated),
+                        "ok".to_string(),
+                    );
+                    gov.record_outcome(tool_call.name.clone(), params_str, result_truncated);
+                } else {
+                    gov.record_audit(
+                        ctx.session_key.clone(),
+                        "ToolInvoke".to_string(),
+                        format!("{}:{}", tool_call.name, params_truncated),
+                        format!("error:{}", content.get(..200).unwrap_or(&content)),
+                    );
+                }
+
+                // Taint check: redact result if blocked
+                if !is_error && !content.is_empty() {
+                    let check_content = content.get(..5000).unwrap_or(&content).to_string();
+                    let check_json = gov.check_sink("LlmContext".to_string(), check_content);
+                    if let Ok(check) = serde_json::from_str::<serde_json::Value>(&check_json) {
+                        if check["blocked"].as_bool() == Some(true) {
+                            let reason = check["reason"].as_str().unwrap_or("taint policy");
+                            gov.record_audit(
+                                ctx.session_key.clone(),
+                                "ToolInvoke".to_string(),
+                                format!("{}:taint_redacted", tool_call.name),
+                                format!("blocked:{}", reason),
+                            );
+                            content = format!("[Tool result redacted: {}]", reason);
+                        }
+                    }
+                }
+            }
 
             // Post-exec: emit background.surface event for surface_to_foreground tool
             if tool_call.name == "surface_to_foreground" && !is_error {
@@ -319,6 +406,15 @@ pub async fn run_agent_turn(
             content: MessageContent::Blocks(tool_results),
         });
         save_message_incremental(&ctx.config.db_path, &ctx.session_key, messages.last().unwrap(), messages.len() - 1);
+    }
+
+    // Governance: record token usage on turn completion
+    if let Some(gov) = &ctx.governance {
+        gov.record_usage(
+            model.to_string(),
+            cumulative_usage.input_tokens,
+            cumulative_usage.output_tokens,
+        );
     }
 
     let messages_json = serde_json::to_string(&messages).unwrap_or_else(|_| "[]".to_string());

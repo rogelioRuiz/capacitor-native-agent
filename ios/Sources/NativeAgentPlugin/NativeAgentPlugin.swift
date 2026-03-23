@@ -176,6 +176,14 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    // ── Governance (native-to-native, not a plugin method) ─────────────────
+
+    /// Register an optional governance provider for taint, audit, loop-guard, and cost tracking.
+    /// Called by capacitor-agent-os at init time — not exposed to JavaScript.
+    public func registerGovernance(_ provider: GovernanceProvider) {
+        try? handle?.setGovernanceProvider(provider: provider)
+    }
+
     // ── Agent ────────────────────────────────────────────────────────────────
 
     @objc func sendMessage(_ call: CAPPluginCall) {

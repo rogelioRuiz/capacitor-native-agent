@@ -654,6 +654,24 @@ internal open class UniffiForeignFutureStructVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`toolName`: RustBuffer.ByValue,`paramsJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`toolName`: RustBuffer.ByValue,`paramsJson`: RustBuffer.ByValue,`result`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod2 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`agentId`: RustBuffer.ByValue,`action`: RustBuffer.ByValue,`detail`: RustBuffer.ByValue,`outcome`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod3 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`sinkType`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod4 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod5 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`modelId`: RustBuffer.ByValue,`inputTokens`: Int,`outputTokens`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceMemoryProviderMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`key`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,`metadataJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -674,6 +692,37 @@ internal interface UniffiCallbackInterfaceNativeEventCallbackMethod0 : com.sun.j
 }
 internal interface UniffiCallbackInterfaceNativeNotifierMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`title`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,`dataJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("checkLoop", "recordOutcome", "recordAudit", "checkSink", "reset", "recordUsage", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
+    @JvmField internal var `checkLoop`: UniffiCallbackInterfaceGovernanceProviderMethod0? = null,
+    @JvmField internal var `recordOutcome`: UniffiCallbackInterfaceGovernanceProviderMethod1? = null,
+    @JvmField internal var `recordAudit`: UniffiCallbackInterfaceGovernanceProviderMethod2? = null,
+    @JvmField internal var `checkSink`: UniffiCallbackInterfaceGovernanceProviderMethod3? = null,
+    @JvmField internal var `reset`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
+    @JvmField internal var `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `checkLoop`: UniffiCallbackInterfaceGovernanceProviderMethod0? = null,
+        `recordOutcome`: UniffiCallbackInterfaceGovernanceProviderMethod1? = null,
+        `recordAudit`: UniffiCallbackInterfaceGovernanceProviderMethod2? = null,
+        `checkSink`: UniffiCallbackInterfaceGovernanceProviderMethod3? = null,
+        `reset`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
+        `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceGovernanceProvider(`checkLoop`,`recordOutcome`,`recordAudit`,`checkSink`,`reset`,`recordUsage`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceGovernanceProvider) {
+        `checkLoop` = other.`checkLoop`
+        `recordOutcome` = other.`recordOutcome`
+        `recordAudit` = other.`recordAudit`
+        `checkSink` = other.`checkSink`
+        `reset` = other.`reset`
+        `recordUsage` = other.`recordUsage`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
 }
 @Structure.FieldOrder("store", "recall", "forget", "search", "list", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceMemoryProvider(
@@ -905,6 +954,15 @@ internal open class UniffiVTableCallbackInterfaceNativeNotifier(
 
 
 
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -915,6 +973,7 @@ internal interface UniffiLib : Library {
             .also { lib: UniffiLib ->
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
+                uniffiCallbackInterfaceGovernanceProvider.register(lib)
                 uniffiCallbackInterfaceMemoryProvider.register(lib)
                 uniffiCallbackInterfaceNativeEventCallback.register(lib)
                 uniffiCallbackInterfaceNativeNotifier.register(lib)
@@ -1007,6 +1066,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_event_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_governance_provider(`ptr`: Pointer,`provider`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_heartbeat_config(`ptr`: Pointer,`configJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_memory_provider(`ptr`: Pointer,`provider`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1026,6 +1087,8 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_update_cron_job(`ptr`: Pointer,`id`: RustBuffer.ByValue,`patchJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_update_skill(`ptr`: Pointer,`id`: RustBuffer.ByValue,`patchJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_native_agent_ffi_fn_init_callback_vtable_governanceprovider(`vtable`: UniffiVTableCallbackInterfaceGovernanceProvider,
     ): Unit
     fun uniffi_native_agent_ffi_fn_init_callback_vtable_memoryprovider(`vtable`: UniffiVTableCallbackInterfaceMemoryProvider,
     ): Unit
@@ -1227,6 +1290,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback(
     ): Short
+    fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_governance_provider(
+    ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_memory_provider(
@@ -1248,6 +1313,18 @@ internal interface UniffiLib : Library {
     fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_update_skill(
     ): Short
     fun uniffi_native_agent_ffi_checksum_constructor_nativeagenthandle_new(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_governanceprovider_check_loop(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_governanceprovider_record_outcome(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_governanceprovider_record_audit(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_governanceprovider_reset(
+    ): Short
+    fun uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage(
     ): Short
     fun uniffi_native_agent_ffi_checksum_method_memoryprovider_store(
     ): Short
@@ -1397,6 +1474,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_governance_provider() != 45093.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config() != 33968.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1428,6 +1508,24 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_constructor_nativeagenthandle_new() != 18383.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_check_loop() != 64194.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_record_outcome() != 15801.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_record_audit() != 34049.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink() != 37338.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_reset() != 57214.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 907.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_memoryprovider_store() != 49136.toShort()) {
@@ -1976,6 +2074,12 @@ public interface NativeAgentHandleInterface {
      * Set the event callback for receiving agent events.
      */
     fun `setEventCallback`(`callback`: NativeEventCallback)
+    
+    /**
+     * Set the optional governance provider (taint, audit, loop-guard, cost tracking).
+     * Typically called by capacitor-agent-os when it auto-registers at init time.
+     */
+    fun `setGovernanceProvider`(`provider`: GovernanceProvider)
     
     /**
      * Set heartbeat config.
@@ -2697,6 +2801,22 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
 
     
     /**
+     * Set the optional governance provider (taint, audit, loop-guard, cost tracking).
+     * Typically called by capacitor-agent-os when it auto-registers at init time.
+     */
+    @Throws(NativeAgentException::class)override fun `setGovernanceProvider`(`provider`: GovernanceProvider)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_governance_provider(
+        it, FfiConverterTypeGovernanceProvider.lower(`provider`),_status)
+}
+    }
+    
+    
+
+    
+    /**
      * Set heartbeat config.
      */
     @Throws(NativeAgentException::class)override fun `setHeartbeatConfig`(`configJson`: kotlin.String)
@@ -3333,20 +3453,45 @@ public object FfiConverterTypeNativeAgentError : FfiConverterRustBuffer<NativeAg
 
 
 /**
- * Callback interface for memory operations (LanceDB or any vector store).
- * Implemented by Kotlin/Swift, which bridges to the actual memory backend.
+ * Optional governance provider for security, audit, and loop-guard checks.
+ * Implemented by Kotlin/Swift — typically backed by capacitor-agent-os when
+ * that plugin is installed. When absent, the agent loop runs without
+ * governance checks.
  */
-public interface MemoryProvider {
+public interface GovernanceProvider {
     
-    fun `store`(`key`: kotlin.String, `text`: kotlin.String, `metadataJson`: kotlin.String?): kotlin.String
+    /**
+     * Check if a tool call should proceed. Returns JSON verdict:
+     * `{"type":"Allow"}` | `{"type":"Warn","reason":"..."}` |
+     * `{"type":"Block","reason":"..."}` | `{"type":"CircuitBreak","reason":"..."}`
+     */
+    fun `checkLoop`(`toolName`: kotlin.String, `paramsJson`: kotlin.String): kotlin.String
     
-    fun `recall`(`query`: kotlin.String, `limit`: kotlin.UInt): kotlin.String
+    /**
+     * Record tool outcome for loop detection. Returns optional warning string.
+     */
+    fun `recordOutcome`(`toolName`: kotlin.String, `paramsJson`: kotlin.String, `result`: kotlin.String): kotlin.String?
     
-    fun `forget`(`key`: kotlin.String): kotlin.String
+    /**
+     * Record an audit trail entry.
+     */
+    fun `recordAudit`(`agentId`: kotlin.String, `action`: kotlin.String, `detail`: kotlin.String, `outcome`: kotlin.String)
     
-    fun `search`(`query`: kotlin.String, `maxResults`: kotlin.UInt): kotlin.String
+    /**
+     * Check if content is tainted before passing to LLM. Returns JSON:
+     * `{"blocked":true/false,"reason":"...","matchedLabels":[...]}`
+     */
+    fun `checkSink`(`sinkType`: kotlin.String, `content`: kotlin.String): kotlin.String
     
-    fun `list`(`prefix`: kotlin.String?, `limit`: kotlin.UInt?): kotlin.String
+    /**
+     * Reset loop guard state (e.g. on new session).
+     */
+    fun `reset`()
+    
+    /**
+     * Record token usage for cost tracking.
+     */
+    fun `recordUsage`(`modelId`: kotlin.String, `inputTokens`: kotlin.UInt, `outputTokens`: kotlin.UInt)
     
     companion object
 }
@@ -3383,6 +3528,144 @@ public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: Ffi
         buf.putLong(lower(value))
     }
 }
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceGovernanceProvider {
+    internal object `checkLoop`: UniffiCallbackInterfaceGovernanceProviderMethod0 {
+        override fun callback(`uniffiHandle`: Long,`toolName`: RustBuffer.ByValue,`paramsJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`checkLoop`(
+                    FfiConverterString.lift(`toolName`),
+                    FfiConverterString.lift(`paramsJson`),
+                )
+            }
+            val writeReturn = { value: kotlin.String -> uniffiOutReturn.setValue(FfiConverterString.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `recordOutcome`: UniffiCallbackInterfaceGovernanceProviderMethod1 {
+        override fun callback(`uniffiHandle`: Long,`toolName`: RustBuffer.ByValue,`paramsJson`: RustBuffer.ByValue,`result`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`recordOutcome`(
+                    FfiConverterString.lift(`toolName`),
+                    FfiConverterString.lift(`paramsJson`),
+                    FfiConverterString.lift(`result`),
+                )
+            }
+            val writeReturn = { value: kotlin.String? -> uniffiOutReturn.setValue(FfiConverterOptionalString.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `recordAudit`: UniffiCallbackInterfaceGovernanceProviderMethod2 {
+        override fun callback(`uniffiHandle`: Long,`agentId`: RustBuffer.ByValue,`action`: RustBuffer.ByValue,`detail`: RustBuffer.ByValue,`outcome`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`recordAudit`(
+                    FfiConverterString.lift(`agentId`),
+                    FfiConverterString.lift(`action`),
+                    FfiConverterString.lift(`detail`),
+                    FfiConverterString.lift(`outcome`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `checkSink`: UniffiCallbackInterfaceGovernanceProviderMethod3 {
+        override fun callback(`uniffiHandle`: Long,`sinkType`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`checkSink`(
+                    FfiConverterString.lift(`sinkType`),
+                    FfiConverterString.lift(`content`),
+                )
+            }
+            val writeReturn = { value: kotlin.String -> uniffiOutReturn.setValue(FfiConverterString.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `reset`: UniffiCallbackInterfaceGovernanceProviderMethod4 {
+        override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`reset`(
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod5 {
+        override fun callback(`uniffiHandle`: Long,`modelId`: RustBuffer.ByValue,`inputTokens`: Int,`outputTokens`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`recordUsage`(
+                    FfiConverterString.lift(`modelId`),
+                    FfiConverterUInt.lift(`inputTokens`),
+                    FfiConverterUInt.lift(`outputTokens`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeGovernanceProvider.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceGovernanceProvider.UniffiByValue(
+        `checkLoop`,
+        `recordOutcome`,
+        `recordAudit`,
+        `checkSink`,
+        `reset`,
+        `recordUsage`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_native_agent_ffi_fn_init_callback_vtable_governanceprovider(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeGovernanceProvider: FfiConverterCallbackInterface<GovernanceProvider>()
+
+
+
+
+
+/**
+ * Callback interface for memory operations (LanceDB or any vector store).
+ * Implemented by Kotlin/Swift, which bridges to the actual memory backend.
+ */
+public interface MemoryProvider {
+    
+    fun `store`(`key`: kotlin.String, `text`: kotlin.String, `metadataJson`: kotlin.String?): kotlin.String
+    
+    fun `recall`(`query`: kotlin.String, `limit`: kotlin.UInt): kotlin.String
+    
+    fun `forget`(`key`: kotlin.String): kotlin.String
+    
+    fun `search`(`query`: kotlin.String, `maxResults`: kotlin.UInt): kotlin.String
+    
+    fun `list`(`prefix`: kotlin.String?, `limit`: kotlin.UInt?): kotlin.String
+    
+    companion object
+}
+
+
 
 // Put the implementation in an object so we don't pollute the top-level namespace
 internal object uniffiCallbackInterfaceMemoryProvider {

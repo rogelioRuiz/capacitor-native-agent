@@ -113,6 +113,16 @@ class NativeAgentPlugin : Plugin() {
         }
     }
 
+    // ── Governance (native-to-native, not a @PluginMethod) ──────────
+
+    /**
+     * Register an optional governance provider for taint, audit, loop-guard, and cost tracking.
+     * Called by capacitor-agent-os at init time — not exposed to JavaScript.
+     */
+    fun registerGovernance(provider: uniffi.native_agent_ffi.GovernanceProvider) {
+        handle?.setGovernanceProvider(provider)
+    }
+
     // ── Agent ──────────────────────────────────────────────────────────
 
     @PluginMethod
