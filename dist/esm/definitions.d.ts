@@ -174,6 +174,8 @@ export interface NativeAgentPlugin {
         key: string;
         provider: string;
         authType: string;
+        refresh?: string;
+        expiresAt?: number;
     }): Promise<void>;
     deleteAuth(options: {
         provider: string;

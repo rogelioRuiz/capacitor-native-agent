@@ -287,8 +287,17 @@ impl NativeAgentHandle {
         key: String,
         provider: String,
         auth_type: String,
+        refresh: Option<String>,
+        expires_at: Option<i64>,
     ) -> Result<(), NativeAgentError> {
-        auth::set_auth_key(&self.config.auth_profiles_path, &key, &provider, &auth_type)
+        auth::set_auth_key(
+            &self.config.auth_profiles_path,
+            &key,
+            &provider,
+            &auth_type,
+            refresh.as_deref(),
+            expires_at,
+        )
     }
 
     /// Delete auth for a provider.

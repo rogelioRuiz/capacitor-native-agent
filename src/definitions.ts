@@ -221,7 +221,7 @@ export interface NativeAgentPlugin {
   // ── Auth ──
 
   getAuthToken(options: { provider: string }): Promise<AuthTokenResult>
-  setAuthKey(options: { key: string; provider: string; authType: string }): Promise<void>
+  setAuthKey(options: { key: string; provider: string; authType: string; refresh?: string; expiresAt?: number }): Promise<void>
   deleteAuth(options: { provider: string }): Promise<void>
   refreshToken(options: { provider: string }): Promise<AuthTokenResult>
   getAuthStatus(options: { provider: string }): Promise<AuthStatusResult>

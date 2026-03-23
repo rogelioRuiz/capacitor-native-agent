@@ -500,7 +500,7 @@ uint32_t uniffi_native_agent_ffi_fn_method_nativeagenthandle_restart_mcp(void*_N
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_RESUME_SESSION
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_RESUME_SESSION
-void uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(void*_Nonnull ptr, RustBuffer session_key, RustBuffer agent_id, RustBuffer messages_json, RustBuffer provider, RustBuffer model, RustCallStatus *_Nonnull out_status
+int8_t uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(void*_Nonnull ptr, RustBuffer session_key, RustBuffer agent_id, RustBuffer messages_json, RustBuffer provider, RustBuffer model, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_RUN_CRON_JOB
@@ -520,7 +520,7 @@ RustBuffer uniffi_native_agent_ffi_fn_method_nativeagenthandle_send_message(void
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_AUTH_KEY
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_AUTH_KEY
-void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(void*_Nonnull ptr, RustBuffer key, RustBuffer provider, RustBuffer auth_type, RustCallStatus *_Nonnull out_status
+void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(void*_Nonnull ptr, RustBuffer key, RustBuffer provider, RustBuffer auth_type, RustBuffer refresh, RustBuffer expires_at, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_EVENT_CALLBACK

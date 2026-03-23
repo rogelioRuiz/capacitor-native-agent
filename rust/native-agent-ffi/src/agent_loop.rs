@@ -90,7 +90,7 @@ pub async fn run_agent_turn(
         .model
         .as_deref()
         .unwrap_or(default_model(provider));
-    let driver = create_driver(provider, &api_key)?;
+    let mut driver = create_driver(provider, &api_key)?;
 
     let max_turns = ctx.params.max_turns.unwrap_or(DEFAULT_MAX_TURNS);
     let mut messages = ctx.prior_messages.clone().unwrap_or_default();
@@ -151,7 +151,23 @@ pub async fn run_agent_turn(
         // The assistant response will be appended at this index — pass to
         // streaming events so JS can compute the same deterministic UUID.
         let next_msg_idx = messages.len() as u32;
-        let response = call_with_retry(&*driver, &req, callback, &ctx.abort_flag, &ctx.session_key, next_msg_idx).await?;
+        let response = match call_with_retry(&*driver, &req, callback, &ctx.abort_flag, &ctx.session_key, next_msg_idx).await {
+            Ok(r) => r,
+            Err(e) if e.status_code() == Some(401) && auth.is_oauth => {
+                // Token expired — refresh once and retry with a new driver.
+                let refreshed = crate::auth::refresh_oauth_token(
+                    &ctx.config.auth_profiles_path, provider,
+                ).await?;
+                let new_key = refreshed.api_key.ok_or_else(|| NativeAgentError::Auth {
+                    msg: "Token refresh returned no access token".into(),
+                })?;
+                driver = create_driver(provider, &new_key)?;
+                call_with_retry(&*driver, &req, callback, &ctx.abort_flag, &ctx.session_key, next_msg_idx)
+                    .await
+                    .map_err(|e| NativeAgentError::Llm { msg: e.to_string() })?
+            }
+            Err(e) => return Err(NativeAgentError::Llm { msg: e.to_string() }),
+        };
 
         cumulative_usage.input_tokens += response.usage.input_tokens;
         cumulative_usage.output_tokens += response.usage.output_tokens;
@@ -508,6 +524,9 @@ async fn wait_until_cancelled(abort_flag: &Arc<Mutex<bool>>) {
 }
 
 /// Call LLM with retry logic (matches JS withRetry behavior).
+///
+/// Returns `LlmError` directly so callers can inspect `status_code()` for
+/// 401-triggered token refresh before converting to `NativeAgentError`.
 async fn call_with_retry(
     driver: &dyn LlmDriver,
     req: &CompletionRequest,
@@ -515,12 +534,14 @@ async fn call_with_retry(
     abort_flag: &Arc<Mutex<bool>>,
     session_key: &str,
     message_index: u32,
-) -> Result<crate::llm_driver::CompletionResponse, NativeAgentError> {
+) -> Result<crate::llm_driver::CompletionResponse, LlmError> {
     let mut last_error: Option<LlmError> = None;
     let sk = session_key.to_string();
 
     for attempt in 0..=MAX_RETRIES {
-        ensure_not_aborted(abort_flag).await?;
+        if let Err(e) = ensure_not_aborted(abort_flag).await {
+            return Err(LlmError::Http(e.to_string()));
+        }
 
         let on_event = |event: StreamEvent| match &event {
             StreamEvent::TextDelta(text) => event_bus::emit_text_delta(callback, text, &sk, message_index),
@@ -540,7 +561,7 @@ async fn call_with_retry(
             Ok(response) => return Ok(response),
             Err(e) => {
                 if attempt == MAX_RETRIES || !e.is_retryable() {
-                    return Err(NativeAgentError::Llm { msg: e.to_string() });
+                    return Err(e);
                 }
 
                 let delay = std::cmp::min(BASE_DELAY_MS * 2u64.pow(attempt), MAX_DELAY_MS);
@@ -554,11 +575,7 @@ async fn call_with_retry(
         }
     }
 
-    Err(NativeAgentError::Llm {
-        msg: last_error
-            .map(|e| e.to_string())
-            .unwrap_or_else(|| "Unknown error".to_string()),
-    })
+    Err(last_error.unwrap_or_else(|| LlmError::Http("Unknown error".to_string())))
 }
 
 fn create_driver(provider: &str, api_key: &str) -> Result<Box<dyn LlmDriver>, NativeAgentError> {

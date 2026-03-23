@@ -657,8 +657,10 @@ public protocol NativeAgentHandleProtocol : AnyObject {
     
     /**
      * Resume a session (load messages into agent context).
+     * Returns `was_interrupted: true` if the session had an in-progress turn
+     * that was killed (e.g. app force-close). The caller can auto-resume.
      */
-    func resumeSession(sessionKey: String, agentId: String, messagesJson: String?, provider: String?, model: String?) throws 
+    func resumeSession(sessionKey: String, agentId: String, messagesJson: String?, provider: String?, model: String?) throws  -> Bool
     
     /**
      * Force-trigger a cron job.
@@ -678,7 +680,7 @@ public protocol NativeAgentHandleProtocol : AnyObject {
     /**
      * Set an auth key for a provider.
      */
-    func setAuthKey(key: String, provider: String, authType: String) throws 
+    func setAuthKey(key: String, provider: String, authType: String, refresh: String?, expiresAt: Int64?) throws 
     
     /**
      * Set the event callback for receiving agent events.
@@ -1124,8 +1126,11 @@ open func restartMcp(toolsJson: String)throws  -> UInt32 {
     
     /**
      * Resume a session (load messages into agent context).
+     * Returns `was_interrupted: true` if the session had an in-progress turn
+     * that was killed (e.g. app force-close). The caller can auto-resume.
      */
-open func resumeSession(sessionKey: String, agentId: String, messagesJson: String?, provider: String?, model: String?)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+open func resumeSession(sessionKey: String, agentId: String, messagesJson: String?, provider: String?, model: String?)throws  -> Bool {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(self.uniffiClonePointer(),
         FfiConverterString.lower(sessionKey),
         FfiConverterString.lower(agentId),
@@ -1133,7 +1138,7 @@ open func resumeSession(sessionKey: String, agentId: String, messagesJson: Strin
         FfiConverterOptionString.lower(provider),
         FfiConverterOptionString.lower(model),$0
     )
-}
+})
 }
     
     /**
@@ -1171,11 +1176,13 @@ open func sendMessage(params: SendMessageParams)throws  -> String {
     /**
      * Set an auth key for a provider.
      */
-open func setAuthKey(key: String, provider: String, authType: String)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+open func setAuthKey(key: String, provider: String, authType: String, refresh: String?, expiresAt: Int64?)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(self.uniffiClonePointer(),
         FfiConverterString.lower(key),
         FfiConverterString.lower(provider),
-        FfiConverterString.lower(authType),$0
+        FfiConverterString.lower(authType),
+        FfiConverterOptionString.lower(refresh),
+        FfiConverterOptionInt64.lower(expiresAt),$0
     )
 }
 }
@@ -2457,6 +2464,30 @@ fileprivate struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
+    typealias SwiftType = Int64?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterInt64.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterInt64.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -2608,7 +2639,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_restart_mcp() != 8963) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_resume_session() != 34699) {
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_resume_session() != 1498) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_run_cron_job() != 11263) {
@@ -2620,7 +2651,7 @@ private var initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_send_message() != 53296) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 40485) {
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 1639) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165) {

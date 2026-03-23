@@ -21,6 +21,8 @@ struct AuthProfile {
     access: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     refresh: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires_at: Option<i64>,
     #[serde(flatten)]
     extra: HashMap<String, serde_json::Value>,
 }
@@ -119,6 +121,8 @@ pub fn set_auth_key(
     key: &str,
     provider: &str,
     auth_type: &str,
+    refresh: Option<&str>,
+    expires_at: Option<i64>,
 ) -> Result<(), NativeAgentError> {
     let mut profiles = load_profiles(path);
     let profile_id = format!("{}-{}", provider, auth_type);
@@ -135,7 +139,8 @@ pub fn set_auth_key(
         } else {
             None
         },
-        refresh: None,
+        refresh: refresh.map(|r| r.to_string()),
+        expires_at,
         extra: HashMap::new(),
     };
     profiles.profiles.insert(profile_id.clone(), profile);

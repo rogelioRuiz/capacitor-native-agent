@@ -205,6 +205,8 @@ class NativeAgentPlugin : Plugin() {
             call.getString("key") ?: return@withHandle call.reject("key is required"),
             call.getString("provider") ?: "anthropic",
             call.getString("authType") ?: "api_key",
+            call.getString("refresh"),
+            if (call.hasOption("expiresAt")) call.getLong("expiresAt") else null,
         )
         call.resolve()
     }

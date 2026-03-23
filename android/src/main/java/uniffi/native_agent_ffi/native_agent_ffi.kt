@@ -1003,7 +1003,7 @@ internal interface UniffiLib : Library {
     ): Int
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_send_message(`ptr`: Pointer,`params`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Pointer,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Pointer,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,`refresh`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_event_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -1391,7 +1391,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_send_message() != 53296.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 40485.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 1639.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165.toShort()) {
@@ -1970,7 +1970,7 @@ public interface NativeAgentHandleInterface {
     /**
      * Set an auth key for a provider.
      */
-    fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String)
+    fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?)
     
     /**
      * Set the event callback for receiving agent events.
@@ -2669,12 +2669,12 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     /**
      * Set an auth key for a provider.
      */
-    @Throws(NativeAgentException::class)override fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String)
+    @Throws(NativeAgentException::class)override fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?)
         = 
     callWithPointer {
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.INSTANCE.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(
-        it, FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),_status)
+        it, FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),FfiConverterOptionalString.lower(`refresh`),FfiConverterOptionalLong.lower(`expiresAt`),_status)
 }
     }
     
@@ -3629,6 +3629,38 @@ public object FfiConverterOptionalUInt: FfiConverterRustBuffer<kotlin.UInt?> {
         } else {
             buf.put(1)
             FfiConverterUInt.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
+    override fun read(buf: ByteBuffer): kotlin.Long? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterLong.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Long?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterLong.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Long?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterLong.write(value, buf)
         }
     }
 }

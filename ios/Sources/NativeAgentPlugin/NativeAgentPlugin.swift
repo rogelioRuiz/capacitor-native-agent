@@ -314,11 +314,15 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
             guard let key = call.getString("key") else {
                 return call.reject("key is required")
             }
+            let refresh: String? = call.getString("refresh")
+            let expiresAt: Int64? = (call.options["expiresAt"] as? NSNumber)?.int64Value
             do {
                 try h.setAuthKey(
                     key: key,
                     provider: call.getString("provider") ?? "anthropic",
-                    authType: call.getString("authType") ?? "api_key"
+                    authType: call.getString("authType") ?? "api_key",
+                    refresh: refresh,
+                    expiresAt: expiresAt
                 )
                 call.resolve()
             } catch {
