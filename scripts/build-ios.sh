@@ -7,6 +7,12 @@ RUST_DIR="$SCRIPT_DIR/../rust/native-agent-ffi"
 PLUGIN_DIR="$SCRIPT_DIR/.."
 XCFRAMEWORK_DIR="$PLUGIN_DIR/ios/Frameworks/NativeAgentFFI.xcframework"
 
+if [ ! -f "$RUST_DIR/Cargo.toml" ]; then
+  echo "error: $RUST_DIR/Cargo.toml not found." >&2
+  echo "Run: git submodule update --init --recursive" >&2
+  exit 1
+fi
+
 cd "$RUST_DIR"
 
 echo "==> Building for aarch64-apple-ios (device)..."

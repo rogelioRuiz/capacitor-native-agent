@@ -20,6 +20,16 @@ npm install capacitor-native-agent
 npx cap sync
 ```
 
+## Cloning this repository
+
+The Rust FFI crate lives in a separate GitLab repository and is pulled in as a git submodule. After cloning:
+
+```bash
+git submodule update --init --recursive
+```
+
+Upstream URL: https://gitlab.k8s.t6x.io/rruiz/native-agent-ffi
+
 ## Android Setup
 
 The npm package includes the Kotlin plugin source and UniFFI bindings, but **not** the compiled Rust shared library. You must build and place it yourself:
@@ -27,9 +37,10 @@ The npm package includes the Kotlin plugin source and UniFFI bindings, but **not
 ### 1. Build the Rust .so
 
 ```bash
-cd rust/native-agent-ffi
-cargo ndk -t arm64-v8a build --release
+scripts/build-android.sh
 ```
+
+This runs `cargo ndk -t arm64-v8a build --release` on the submodule and copies the result into `android/src/main/jniLibs/arm64-v8a/`.
 
 ### 2. Place the .so in your app
 
@@ -154,13 +165,40 @@ Events are emitted via `addListener('nativeAgentEvent', handler)`:
 - `heartbeat.*` — Heartbeat lifecycle
 - `scheduler.status` — Scheduler state updates
 
+## Supported LLM providers
+
+The `provider` argument is a free string. The Rust agent loop currently accepts:
+
+| Provider string | Default model | Endpoint |
+|---|---|---|
+| `anthropic` | `claude-sonnet-4-20250514` | Anthropic Messages API |
+| `openai` | `gpt-4o` | OpenAI Chat Completions |
+| `openrouter` | `anthropic/claude-sonnet-4.5` | OpenRouter |
+| `kimi` (aliases `kimi-coding`, `kimi-code`) | `kimi-for-coding` | Kimi Coding (Anthropic-messages-compatible, https://api.kimi.com/coding) |
+
+> **Note (0.9.0 — iOS):** Kimi is fully wired in the Android `.so` shipped with this version. The iOS `xcframework` in this release is the pre-existing `0.8.x` build and has **not** been rebuilt against `native-agent-ffi 9946e0f`. iOS callers using `provider: 'kimi'` will receive `Unsupported provider`. Track [#TODO-ios-0.9.1](#known-limitations) for the 0.9.1 iOS rebuild.
+
 ## Platform Support
 
-| Platform | Status |
-|----------|--------|
-| Android  | Supported |
-| iOS      | Not yet implemented |
-| Web      | N/A (throws unavailable error) |
+| Platform | Status (this release: **0.9.0**) |
+|----------|-----------------------------------|
+| Android  | Supported. Rust pinned to `native-agent-ffi@9946e0f` (Kimi, SSE no-space fix, session-context fix, AgentStore refactor, runtime-drop fix). |
+| iOS      | Stale binary — `xcframework` is pre-`0.9.0` and will be refreshed in `0.9.1`. See *Known limitations* below. |
+| Web      | N/A (throws unavailable error). |
+
+## Known limitations
+
+### 0.9.0 — iOS xcframework not rebuilt
+
+The Mac build host was unreachable when `0.9.0` was cut, so `ios/Frameworks/NativeAgentFFI.xcframework/` was **not** rebuilt against `native-agent-ffi@9946e0f`. iOS users on `0.9.0` are missing the following upstream changes (Android users have them):
+
+- `ba8c97e` `feat(llm): add kimi (Kimi Code) provider` — `provider: 'kimi'` will fail on iOS until `0.9.1`.
+- `2cb34be` `fix(llm): tolerate "data:" SSE without space` — Anthropic-compatible streaming endpoints that omit the space after `data:` will return empty messages on iOS.
+- `9735f4d` `ffi: keep session context across send_message` — after a cold-boot resume, the next `sendMessage` may start without prior history on iOS.
+- `02b1955` `feat(store): extract AgentStore trait` — internal refactor only; mobile `SqliteStore` default behavior unchanged, so no user-visible iOS impact.
+- `9946e0f` `ffi: detach inner runtime on drop` — server-side concern only (handle dropped from inside another tokio runtime); does not affect Capacitor.
+
+Action plan: rebuild `xcframework` on the Mac under `~/choreruiz/` via `scripts/build-ios.sh`, rsync `ios/Frameworks/` and `ios/Sources/NativeAgentPlugin/Generated/` back, bump to `0.9.1`, republish.
 
 ## License
 
