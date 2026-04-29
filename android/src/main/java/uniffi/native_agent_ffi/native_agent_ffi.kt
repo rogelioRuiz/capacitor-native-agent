@@ -3088,7 +3088,21 @@ data class InitConfig (
     /**
      * Path to auth-profiles.json.
      */
-    var `authProfilesPath`: kotlin.String
+    var `authProfilesPath`: kotlin.String, 
+    /**
+     * Configured default LLM provider for this agent. When a per-call
+     * `SendMessageParams.provider` is unset, the resolver falls back to
+     * this value. `None` falls through to the hardcoded "anthropic"
+     * safety net — which any properly-configured install should never hit.
+     */
+    var `defaultProvider`: kotlin.String?, 
+    /**
+     * Configured default model. Only used when the resolver also took
+     * `default_provider` (i.e. the caller didn't override provider) — if
+     * provider is overridden, the per-provider default model is used
+     * instead, since model strings are tied to providers.
+     */
+    var `defaultModel`: kotlin.String?
 ) {
     
     companion object
@@ -3103,19 +3117,25 @@ public object FfiConverterTypeInitConfig: FfiConverterRustBuffer<InitConfig> {
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
     override fun allocationSize(value: InitConfig) = (
             FfiConverterString.allocationSize(value.`dbPath`) +
             FfiConverterString.allocationSize(value.`workspacePath`) +
-            FfiConverterString.allocationSize(value.`authProfilesPath`)
+            FfiConverterString.allocationSize(value.`authProfilesPath`) +
+            FfiConverterOptionalString.allocationSize(value.`defaultProvider`) +
+            FfiConverterOptionalString.allocationSize(value.`defaultModel`)
     )
 
     override fun write(value: InitConfig, buf: ByteBuffer) {
             FfiConverterString.write(value.`dbPath`, buf)
             FfiConverterString.write(value.`workspacePath`, buf)
             FfiConverterString.write(value.`authProfilesPath`, buf)
+            FfiConverterOptionalString.write(value.`defaultProvider`, buf)
+            FfiConverterOptionalString.write(value.`defaultModel`, buf)
     }
 }
 

@@ -251,6 +251,48 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureStr
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD0
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod0)(uint64_t, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD1
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod1)(uint64_t, RustBuffer, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD2
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod2)(uint64_t, RustBuffer, RustBuffer, RustBuffer, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD3
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD3
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod3)(uint64_t, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD4
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD4
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod4)(uint64_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD5
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD5
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod5)(uint64_t, RustBuffer, uint32_t, uint32_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_MEMORY_PROVIDER_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_MEMORY_PROVIDER_METHOD0
 typedef void (*UniffiCallbackInterfaceMemoryProviderMethod0)(uint64_t, RustBuffer, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
@@ -298,6 +340,19 @@ typedef void (*UniffiCallbackInterfaceNativeEventCallbackMethod0)(uint64_t, Rust
 typedef void (*UniffiCallbackInterfaceNativeNotifierMethod0)(uint64_t, RustBuffer, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER
+typedef struct UniffiVTableCallbackInterfaceGovernanceProvider {
+    UniffiCallbackInterfaceGovernanceProviderMethod0 _Nonnull checkLoop;
+    UniffiCallbackInterfaceGovernanceProviderMethod1 _Nonnull recordOutcome;
+    UniffiCallbackInterfaceGovernanceProviderMethod2 _Nonnull recordAudit;
+    UniffiCallbackInterfaceGovernanceProviderMethod3 _Nonnull checkSink;
+    UniffiCallbackInterfaceGovernanceProviderMethod4 _Nonnull reset;
+    UniffiCallbackInterfaceGovernanceProviderMethod5 _Nonnull recordUsage;
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+} UniffiVTableCallbackInterfaceGovernanceProvider;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_MEMORY_PROVIDER
@@ -500,7 +555,7 @@ uint32_t uniffi_native_agent_ffi_fn_method_nativeagenthandle_restart_mcp(void*_N
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_RESUME_SESSION
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_RESUME_SESSION
-void uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(void*_Nonnull ptr, RustBuffer session_key, RustBuffer agent_id, RustBuffer messages_json, RustBuffer provider, RustBuffer model, RustCallStatus *_Nonnull out_status
+int8_t uniffi_native_agent_ffi_fn_method_nativeagenthandle_resume_session(void*_Nonnull ptr, RustBuffer session_key, RustBuffer agent_id, RustBuffer messages_json, RustBuffer provider, RustBuffer model, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_RUN_CRON_JOB
@@ -520,12 +575,17 @@ RustBuffer uniffi_native_agent_ffi_fn_method_nativeagenthandle_send_message(void
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_AUTH_KEY
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_AUTH_KEY
-void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(void*_Nonnull ptr, RustBuffer key, RustBuffer provider, RustBuffer auth_type, RustCallStatus *_Nonnull out_status
+void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(void*_Nonnull ptr, RustBuffer key, RustBuffer provider, RustBuffer auth_type, RustBuffer refresh, RustBuffer expires_at, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_EVENT_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_EVENT_CALLBACK
 void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_event_callback(void*_Nonnull ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_GOVERNANCE_PROVIDER
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_GOVERNANCE_PROVIDER
+void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_governance_provider(void*_Nonnull ptr, uint64_t provider, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_HEARTBEAT_CONFIG
@@ -576,6 +636,11 @@ void uniffi_native_agent_ffi_fn_method_nativeagenthandle_update_cron_job(void*_N
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_UPDATE_SKILL
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_UPDATE_SKILL
 void uniffi_native_agent_ffi_fn_method_nativeagenthandle_update_skill(void*_Nonnull ptr, RustBuffer id, RustBuffer patch_json, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_INIT_CALLBACK_VTABLE_GOVERNANCEPROVIDER
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_INIT_CALLBACK_VTABLE_GOVERNANCEPROVIDER
+void uniffi_native_agent_ffi_fn_init_callback_vtable_governanceprovider(UniffiVTableCallbackInterfaceGovernanceProvider* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_INIT_CALLBACK_VTABLE_MEMORYPROVIDER
@@ -1117,6 +1182,12 @@ uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_cal
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_GOVERNANCE_PROVIDER
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_GOVERNANCE_PROVIDER
+uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_governance_provider(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_HEARTBEAT_CONFIG
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_HEARTBEAT_CONFIG
 uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config(void
@@ -1180,6 +1251,42 @@ uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_update_skill(
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_CONSTRUCTOR_NATIVEAGENTHANDLE_NEW
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_CONSTRUCTOR_NATIVEAGENTHANDLE_NEW
 uint16_t uniffi_native_agent_ffi_checksum_constructor_nativeagenthandle_new(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_CHECK_LOOP
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_CHECK_LOOP
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_check_loop(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RECORD_OUTCOME
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RECORD_OUTCOME
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_record_outcome(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RECORD_AUDIT
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RECORD_AUDIT
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_record_audit(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_CHECK_SINK
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_CHECK_SINK
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RESET
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RESET
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_reset(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RECORD_USAGE
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_RECORD_USAGE
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage(void
     
 );
 #endif

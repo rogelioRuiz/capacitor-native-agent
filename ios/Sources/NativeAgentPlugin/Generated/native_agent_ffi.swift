@@ -688,6 +688,12 @@ public protocol NativeAgentHandleProtocol : AnyObject {
     func setEventCallback(callback: NativeEventCallback) throws 
     
     /**
+     * Set the optional governance provider (taint, audit, loop-guard, cost tracking).
+     * Typically called by capacitor-agent-os when it auto-registers at init time.
+     */
+    func setGovernanceProvider(provider: GovernanceProvider) throws 
+    
+    /**
      * Set heartbeat config.
      */
     func setHeartbeatConfig(configJson: String) throws 
@@ -1198,6 +1204,17 @@ open func setEventCallback(callback: NativeEventCallback)throws  {try rustCallWi
 }
     
     /**
+     * Set the optional governance provider (taint, audit, loop-guard, cost tracking).
+     * Typically called by capacitor-agent-os when it auto-registers at init time.
+     */
+open func setGovernanceProvider(provider: GovernanceProvider)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_governance_provider(self.uniffiClonePointer(),
+        FfiConverterCallbackInterfaceGovernanceProvider.lower(provider),$0
+    )
+}
+}
+    
+    /**
      * Set heartbeat config.
      */
 open func setHeartbeatConfig(configJson: String)throws  {try rustCallWithError(FfiConverterTypeNativeAgentError.lift) {
@@ -1516,6 +1533,20 @@ public struct InitConfig {
      * Path to auth-profiles.json.
      */
     public var authProfilesPath: String
+    /**
+     * Configured default LLM provider for this agent. When a per-call
+     * `SendMessageParams.provider` is unset, the resolver falls back to
+     * this value. `None` falls through to the hardcoded "anthropic"
+     * safety net — which any properly-configured install should never hit.
+     */
+    public var defaultProvider: String?
+    /**
+     * Configured default model. Only used when the resolver also took
+     * `default_provider` (i.e. the caller didn't override provider) — if
+     * provider is overridden, the per-provider default model is used
+     * instead, since model strings are tied to providers.
+     */
+    public var defaultModel: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -1528,10 +1559,24 @@ public struct InitConfig {
          */workspacePath: String, 
         /**
          * Path to auth-profiles.json.
-         */authProfilesPath: String) {
+         */authProfilesPath: String, 
+        /**
+         * Configured default LLM provider for this agent. When a per-call
+         * `SendMessageParams.provider` is unset, the resolver falls back to
+         * this value. `None` falls through to the hardcoded "anthropic"
+         * safety net — which any properly-configured install should never hit.
+         */defaultProvider: String?, 
+        /**
+         * Configured default model. Only used when the resolver also took
+         * `default_provider` (i.e. the caller didn't override provider) — if
+         * provider is overridden, the per-provider default model is used
+         * instead, since model strings are tied to providers.
+         */defaultModel: String?) {
         self.dbPath = dbPath
         self.workspacePath = workspacePath
         self.authProfilesPath = authProfilesPath
+        self.defaultProvider = defaultProvider
+        self.defaultModel = defaultModel
     }
 }
 
@@ -1548,6 +1593,12 @@ extension InitConfig: Equatable, Hashable {
         if lhs.authProfilesPath != rhs.authProfilesPath {
             return false
         }
+        if lhs.defaultProvider != rhs.defaultProvider {
+            return false
+        }
+        if lhs.defaultModel != rhs.defaultModel {
+            return false
+        }
         return true
     }
 
@@ -1555,6 +1606,8 @@ extension InitConfig: Equatable, Hashable {
         hasher.combine(dbPath)
         hasher.combine(workspacePath)
         hasher.combine(authProfilesPath)
+        hasher.combine(defaultProvider)
+        hasher.combine(defaultModel)
     }
 }
 
@@ -1568,7 +1621,9 @@ public struct FfiConverterTypeInitConfig: FfiConverterRustBuffer {
             try InitConfig(
                 dbPath: FfiConverterString.read(from: &buf), 
                 workspacePath: FfiConverterString.read(from: &buf), 
-                authProfilesPath: FfiConverterString.read(from: &buf)
+                authProfilesPath: FfiConverterString.read(from: &buf), 
+                defaultProvider: FfiConverterOptionString.read(from: &buf), 
+                defaultModel: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -1576,6 +1631,8 @@ public struct FfiConverterTypeInitConfig: FfiConverterRustBuffer {
         FfiConverterString.write(value.dbPath, into: &buf)
         FfiConverterString.write(value.workspacePath, into: &buf)
         FfiConverterString.write(value.authProfilesPath, into: &buf)
+        FfiConverterOptionString.write(value.defaultProvider, into: &buf)
+        FfiConverterOptionString.write(value.defaultModel, into: &buf)
     }
 }
 
@@ -2003,6 +2060,284 @@ extension NativeAgentError: Foundation.LocalizedError {
 
 
 /**
+ * Optional governance provider for security, audit, and loop-guard checks.
+ * Implemented by Kotlin/Swift — typically backed by capacitor-agent-os when
+ * that plugin is installed. When absent, the agent loop runs without
+ * governance checks.
+ */
+public protocol GovernanceProvider : AnyObject {
+    
+    /**
+     * Check if a tool call should proceed. Returns JSON verdict:
+     * `{"type":"Allow"}` | `{"type":"Warn","reason":"..."}` |
+     * `{"type":"Block","reason":"..."}` | `{"type":"CircuitBreak","reason":"..."}`
+     */
+    func checkLoop(toolName: String, paramsJson: String)  -> String
+    
+    /**
+     * Record tool outcome for loop detection. Returns optional warning string.
+     */
+    func recordOutcome(toolName: String, paramsJson: String, result: String)  -> String?
+    
+    /**
+     * Record an audit trail entry.
+     */
+    func recordAudit(agentId: String, action: String, detail: String, outcome: String) 
+    
+    /**
+     * Check if content is tainted before passing to LLM. Returns JSON:
+     * `{"blocked":true/false,"reason":"...","matchedLabels":[...]}`
+     */
+    func checkSink(sinkType: String, content: String)  -> String
+    
+    /**
+     * Reset loop guard state (e.g. on new session).
+     */
+    func reset() 
+    
+    /**
+     * Record token usage for cost tracking.
+     */
+    func recordUsage(modelId: String, inputTokens: UInt32, outputTokens: UInt32) 
+    
+}
+
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceGovernanceProvider {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceGovernanceProvider = UniffiVTableCallbackInterfaceGovernanceProvider(
+        checkLoop: { (
+            uniffiHandle: UInt64,
+            toolName: RustBuffer,
+            paramsJson: RustBuffer,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.checkLoop(
+                     toolName: try FfiConverterString.lift(toolName),
+                     paramsJson: try FfiConverterString.lift(paramsJson)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        recordOutcome: { (
+            uniffiHandle: UInt64,
+            toolName: RustBuffer,
+            paramsJson: RustBuffer,
+            result: RustBuffer,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String? in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.recordOutcome(
+                     toolName: try FfiConverterString.lift(toolName),
+                     paramsJson: try FfiConverterString.lift(paramsJson),
+                     result: try FfiConverterString.lift(result)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterOptionString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        recordAudit: { (
+            uniffiHandle: UInt64,
+            agentId: RustBuffer,
+            action: RustBuffer,
+            detail: RustBuffer,
+            outcome: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.recordAudit(
+                     agentId: try FfiConverterString.lift(agentId),
+                     action: try FfiConverterString.lift(action),
+                     detail: try FfiConverterString.lift(detail),
+                     outcome: try FfiConverterString.lift(outcome)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        checkSink: { (
+            uniffiHandle: UInt64,
+            sinkType: RustBuffer,
+            content: RustBuffer,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> String in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.checkSink(
+                     sinkType: try FfiConverterString.lift(sinkType),
+                     content: try FfiConverterString.lift(content)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        reset: { (
+            uniffiHandle: UInt64,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.reset(
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        recordUsage: { (
+            uniffiHandle: UInt64,
+            modelId: RustBuffer,
+            inputTokens: UInt32,
+            outputTokens: UInt32,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.recordUsage(
+                     modelId: try FfiConverterString.lift(modelId),
+                     inputTokens: try FfiConverterUInt32.lift(inputTokens),
+                     outputTokens: try FfiConverterUInt32.lift(outputTokens)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            let result = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface GovernanceProvider: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitGovernanceProvider() {
+    uniffi_native_agent_ffi_fn_init_callback_vtable_governanceprovider(&UniffiCallbackInterfaceGovernanceProvider.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceGovernanceProvider {
+    fileprivate static var handleMap = UniffiHandleMap<GovernanceProvider>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceGovernanceProvider : FfiConverter {
+    typealias SwiftType = GovernanceProvider
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+
+
+/**
  * Callback interface for memory operations (LanceDB or any vector store).
  * Implemented by Kotlin/Swift, which bridges to the actual memory backend.
  */
@@ -2020,13 +2355,7 @@ public protocol MemoryProvider : AnyObject {
     
 }
 
-// Magic number for the Rust proxy to call using the same mechanism as every other method,
-// to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
-// Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
 
 // Put the implementation in a struct so we don't pollute the top-level namespace
 fileprivate struct UniffiCallbackInterfaceMemoryProvider {
@@ -2657,6 +2986,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_governance_provider() != 45093) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config() != 33968) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2690,6 +3022,24 @@ private var initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_constructor_nativeagenthandle_new() != 18383) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_check_loop() != 64194) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_record_outcome() != 15801) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_record_audit() != 34049) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink() != 37338) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_reset() != 57214) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 907) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_native_agent_ffi_checksum_method_memoryprovider_store() != 49136) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2712,6 +3062,7 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitGovernanceProvider()
     uniffiCallbackInitMemoryProvider()
     uniffiCallbackInitNativeEventCallback()
     uniffiCallbackInitNativeNotifier()

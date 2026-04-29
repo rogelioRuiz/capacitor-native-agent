@@ -49,6 +49,8 @@ class NativeAgentPlugin : Plugin() {
             ?: return call.reject("workspacePath is required")
         val authProfilesPath = call.getString("authProfilesPath")
             ?: return call.reject("authProfilesPath is required")
+        val defaultProvider = call.getString("defaultProvider")
+        val defaultModel = call.getString("defaultModel")
 
         scope.launch {
             try {
@@ -57,6 +59,8 @@ class NativeAgentPlugin : Plugin() {
                         dbPath = resolvePath(dbPath),
                         workspacePath = resolvePath(workspacePath),
                         authProfilesPath = resolvePath(authProfilesPath),
+                        defaultProvider = defaultProvider,
+                        defaultModel = defaultModel,
                     )
                 )
                 call.resolve()
@@ -74,6 +78,8 @@ class NativeAgentPlugin : Plugin() {
             ?: return call.reject("workspacePath is required")
         val authProfilesPath = call.getString("authProfilesPath")
             ?: return call.reject("authProfilesPath is required")
+        val defaultProvider = call.getString("defaultProvider")
+        val defaultModel = call.getString("defaultModel")
 
         scope.launch {
             try {
@@ -82,6 +88,8 @@ class NativeAgentPlugin : Plugin() {
                     dbPath = resolvePath(dbPath),
                     workspacePath = resolvedWorkspacePath,
                     authProfilesPath = resolvePath(authProfilesPath),
+                    defaultProvider = defaultProvider,
+                    defaultModel = defaultModel,
                 )
                 val h = NativeAgentHandle(config)
                 h.setEventCallback(object : NativeEventCallback {

@@ -14,6 +14,21 @@ export interface InitConfig {
   workspacePath: string
   /** Path to auth-profiles.json */
   authProfilesPath: string
+  /**
+   * Configured default LLM provider for this agent. When a per-call
+   * `provider` is unset on `sendMessage` / cron / skill paths, the
+   * resolver falls back to this value. Omitting it falls through to
+   * the hardcoded "anthropic" safety net — properly-set-up agents
+   * should always specify this.
+   */
+  defaultProvider?: string
+  /**
+   * Configured default model. Only applies when the resolver also
+   * uses `defaultProvider` (i.e. caller didn't override provider).
+   * If provider is overridden, the per-provider default model is
+   * used instead, since model strings are tied to providers.
+   */
+  defaultModel?: string
 }
 
 export interface SendMessageParams {
@@ -134,6 +149,11 @@ export interface CronSkillInput {
   allowedToolsJson?: string
   systemPrompt?: string
   model?: string
+  /**
+   * Optional per-skill provider override. When unset, the cron path
+   * falls back to the agent's `InitConfig.defaultProvider`.
+   */
+  provider?: string
   maxTurns?: number
   timeoutMs?: number
 }
@@ -144,6 +164,8 @@ export interface CronSkillRecord {
   allowedToolsJson?: string
   systemPrompt?: string
   model?: string
+  /** Per-skill provider override; null when the skill defers to the agent default. */
+  provider?: string
   maxTurns?: number
   timeoutMs?: number
   createdAt: number

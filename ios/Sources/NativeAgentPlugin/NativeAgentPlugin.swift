@@ -121,6 +121,8 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let authProfilesPath = call.getString("authProfilesPath") else {
             return call.reject("authProfilesPath is required")
         }
+        let defaultProvider = call.getString("defaultProvider")
+        let defaultModel = call.getString("defaultModel")
 
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             do {
@@ -128,7 +130,9 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                     config: InitConfig(
                         dbPath: self.resolvePath(dbPath),
                         workspacePath: self.resolvePath(workspacePath),
-                        authProfilesPath: self.resolvePath(authProfilesPath)
+                        authProfilesPath: self.resolvePath(authProfilesPath),
+                        defaultProvider: defaultProvider,
+                        defaultModel: defaultModel
                     )
                 )
                 call.resolve()
@@ -148,6 +152,8 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let authProfilesPath = call.getString("authProfilesPath") else {
             return call.reject("authProfilesPath is required")
         }
+        let defaultProvider = call.getString("defaultProvider")
+        let defaultModel = call.getString("defaultModel")
 
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             do {
@@ -155,7 +161,9 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                 let config = InitConfig(
                     dbPath: self.resolvePath(dbPath),
                     workspacePath: resolvedWorkspacePath,
-                    authProfilesPath: self.resolvePath(authProfilesPath)
+                    authProfilesPath: self.resolvePath(authProfilesPath),
+                    defaultProvider: defaultProvider,
+                    defaultModel: defaultModel
                 )
                 let h = try NativeAgentHandle(config: config)
                 try h.setEventCallback(callback: NativeAgentEventBridge(plugin: self))
