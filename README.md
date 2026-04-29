@@ -73,27 +73,44 @@ NativeAgent.addListener('nativeAgentEvent', (event) => {
   }
 })
 
-// Initialize
+// Initialize — `defaultProvider` and `defaultModel` are the agent's
+// configured LLM identity. Every code path (sendMessage, cron jobs,
+// skills, follow-up) inherits these unless the caller explicitly
+// overrides per-call. See "Configuring the LLM provider" below.
 await NativeAgent.initialize({
   dbPath: 'files://agent.db',
   workspacePath: '/path/to/workspace',
   authProfilesPath: '/path/to/auth-profiles.json',
+  defaultProvider: 'openai',
+  defaultModel: 'gpt-4o',
 })
 
 // Set auth
 await NativeAgent.setAuthKey({
-  key: 'sk-ant-...',
-  provider: 'anthropic',
+  key: 'sk-...',
+  provider: 'openai',
   authType: 'api_key',
 })
 
-// Send a message
+// Send a message — uses the configured default provider/model.
 const { runId } = await NativeAgent.sendMessage({
   prompt: 'Hello!',
   sessionKey: 'session-1',
   systemPrompt: 'You are a helpful assistant.',
 })
 ```
+
+## Configuring the LLM provider
+
+The agent's `provider` and `model` are resolved at every turn (interactive `sendMessage`, cron jobs fired from background, skill kickoffs, follow-up turns) using this precedence chain:
+
+1. **Per-call override** — `SendMessageParams.provider` / `model` if explicitly set on a single call.
+2. **Configured default** — `InitConfig.defaultProvider` / `defaultModel` set once at `initialize()`.
+3. **Hardcoded last-resort** — `anthropic` + that provider's default model. The native side emits a loud `eprintln!` whenever this branch fires; a properly-configured install never reaches it.
+
+This means a cron job created with no explicit provider will run on whatever the agent was set up with at `initialize()`-time — not silently fall back to Anthropic. Cron skills can additionally pin a per-skill `provider` / `model` override (see `CronSkillInput`) when one specific skill needs a different model than the agent default.
+
+Note: when a caller overrides `provider` but not `model`, the configured `defaultModel` is **not** applied (model strings are tied to providers). The resolver falls through to the per-provider default model instead.
 
 ## API
 
@@ -176,29 +193,15 @@ The `provider` argument is a free string. The Rust agent loop currently accepts:
 | `openrouter` | `anthropic/claude-sonnet-4.5` | OpenRouter |
 | `kimi` (aliases `kimi-coding`, `kimi-code`) | `kimi-for-coding` | Kimi Coding (Anthropic-messages-compatible, https://api.kimi.com/coding) |
 
-> **Note (0.9.0 — iOS):** Kimi is fully wired in the Android `.so` shipped with this version. The iOS `xcframework` in this release is the pre-existing `0.8.x` build and has **not** been rebuilt against `native-agent-ffi 9946e0f`. iOS callers using `provider: 'kimi'` will receive `Unsupported provider`. Track [#TODO-ios-0.9.1](#known-limitations) for the 0.9.1 iOS rebuild.
+The "Default model" column is what the resolver picks when a provider is selected but no model is supplied. To use a different model with a given provider, pass it explicitly via `defaultModel` at `initialize()` or per-call on `sendMessage`.
 
 ## Platform Support
 
-| Platform | Status (this release: **0.9.0**) |
-|----------|-----------------------------------|
-| Android  | Supported. Rust pinned to `native-agent-ffi@9946e0f` (Kimi, SSE no-space fix, session-context fix, AgentStore refactor, runtime-drop fix). |
-| iOS      | Stale binary — `xcframework` is pre-`0.9.0` and will be refreshed in `0.9.1`. See *Known limitations* below. |
+| Platform | Status |
+|----------|--------|
+| Android  | Supported. `arm64-v8a` `.so` shipped under `android/src/main/jniLibs/`. |
+| iOS      | Supported. Universal `xcframework` ships device (`ios-arm64`) + Apple Silicon simulator (`ios-arm64-simulator`) slices. |
 | Web      | N/A (throws unavailable error). |
-
-## Known limitations
-
-### 0.9.0 — iOS xcframework not rebuilt
-
-The Mac build host was unreachable when `0.9.0` was cut, so `ios/Frameworks/NativeAgentFFI.xcframework/` was **not** rebuilt against `native-agent-ffi@9946e0f`. iOS users on `0.9.0` are missing the following upstream changes (Android users have them):
-
-- `ba8c97e` `feat(llm): add kimi (Kimi Code) provider` — `provider: 'kimi'` will fail on iOS until `0.9.1`.
-- `2cb34be` `fix(llm): tolerate "data:" SSE without space` — Anthropic-compatible streaming endpoints that omit the space after `data:` will return empty messages on iOS.
-- `9735f4d` `ffi: keep session context across send_message` — after a cold-boot resume, the next `sendMessage` may start without prior history on iOS.
-- `02b1955` `feat(store): extract AgentStore trait` — internal refactor only; mobile `SqliteStore` default behavior unchanged, so no user-visible iOS impact.
-- `9946e0f` `ffi: detach inner runtime on drop` — server-side concern only (handle dropped from inside another tokio runtime); does not affect Capacitor.
-
-Action plan: rebuild `xcframework` on the Mac under `~/choreruiz/` via `scripts/build-ios.sh`, rsync `ios/Frameworks/` and `ios/Sources/NativeAgentPlugin/Generated/` back, bump to `0.9.1`, republish.
 
 ## License
 

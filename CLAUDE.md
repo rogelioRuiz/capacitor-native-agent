@@ -66,29 +66,19 @@ scripts/build-ios.sh
 
 Then rsync `ios/Frameworks/NativeAgentFFI.xcframework/` and `ios/Sources/NativeAgentPlugin/Generated/` back to the Linux dev host.
 
-## ⚠️ Known release-state drift: iOS stale in `0.9.0`
+## LLM provider resolution
 
-`0.9.0` was cut Android-only because the Mac build host (`rogelioruizgatica@10.61.192.207`) was unreachable. **The shipped `ios/Frameworks/NativeAgentFFI.xcframework/` was NOT rebuilt against `native-agent-ffi@9946e0f`** — it is still the prior `0.8.x` build. The Android `.so` IS up to date.
+The agent's LLM identity lives on `InitConfig.default_provider` and `InitConfig.default_model` (Rust) / `defaultProvider` / `defaultModel` (TS, Kotlin, Swift). Setting these at `initialize()` is what makes "use the configured provider everywhere" work — they are the second link in the resolution chain inside `agent_loop::resolve_llm`:
 
-Concretely missing on iOS until `0.9.1`:
+1. Per-call `SendMessageParams.provider` / `model` (explicit override).
+2. `InitConfig.default_provider` / `default_model` (the configured agent identity).
+3. Hardcoded `"anthropic"` + that provider's default model — last-resort safety net. The resolver fires `eprintln!` when it lands here so silent fallback can't recur.
 
-- Kimi provider — `provider: 'kimi' | 'kimi-coding' | 'kimi-code'` returns "Unsupported provider" on iOS.
-- SSE `data:`-no-space tolerance — Anthropic-compatible streaming endpoints (e.g. Kimi) silently produce empty messages on iOS.
-- `send_message` session-context fix — first turn after cold-boot/resume may drop prior history on iOS.
+When a caller overrides `provider` but not `model`, the configured `default_model` is intentionally **not** applied (model strings are tied to providers). The resolver falls through to `default_model(resolved_provider)` instead.
 
-(`AgentStore` trait extraction and runtime-drop fix do not affect Capacitor — internal refactor and server-only respectively.)
+Background paths (`handle_wake` for cron, future scheduled-task entry points) build `SendMessageParams` with `provider: None, model: None` — that's correct, it means "use the agent default". Cron skills can pin per-skill overrides via the `provider` / `model` columns on `cron_skills`.
 
-### Action when Mac is reachable
-
-```bash
-ssh rogelioruizgatica@10.61.192.207
-cd ~/choreruiz/capacitor-native-agent           # clone or rsync first if missing
-git pull && git submodule update --init --recursive
-(cd rust/native-agent-ffi && git fetch && git checkout 9946e0f)
-scripts/build-ios.sh
-```
-
-Then back on Linux: rsync `ios/Frameworks/NativeAgentFFI.xcframework/` and `ios/Sources/NativeAgentPlugin/Generated/{native_agent_ffi.swift,native_agent_ffiFFI.h}`, bump `package.json` to `0.9.1`, commit "fix: rebuild iOS xcframework against native-agent-ffi@9946e0f", tag `v0.9.1`, push, `npm publish`.
+If you find yourself adding a new entry point that constructs `SendMessageParams`, **do not** thread provider through manually — leave it `None` and let the resolver handle it. Any explicit `Some("anthropic")` in a new call site is almost certainly a bug.
 
 ## Supported LLM providers
 
