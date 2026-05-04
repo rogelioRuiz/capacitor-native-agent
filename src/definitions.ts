@@ -38,8 +38,12 @@ export interface SendMessageParams {
   provider?: string
   systemPrompt: string
   maxTurns?: number
-  /** JSON-encoded list of allowed tool names. Empty = all tools. */
-  allowedToolsJson?: string
+  /**
+   * Optional skill-mode whitelist of allowed tool names (JSON-encoded array).
+   * Undefined or empty = no skill restriction. The FFI also applies its own
+   * per-turn permission filter from the AgentStore on top of this list.
+   */
+  skillAllowedToolsJson?: string
   /** JSON-encoded extra tool definitions (account tools, MCP tools) */
   extraToolsJson?: string
   /** JSON-encoded prior conversation messages for multi-turn skill sessions */
