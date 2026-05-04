@@ -66,6 +66,10 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private var handle: NativeAgentHandle?
 
+    deinit {
+        NativeAgentBridge.setHandle(nil)
+    }
+
     // ── Helper ──────────────────────────────────────────────────────────────
 
     /// Resolves a `files://` prefixed path to an absolute iOS path
@@ -173,6 +177,7 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 try h.persistConfig()
                 self.handle = h
+                NativeAgentBridge.setHandle(h)
                 UserDefaults.standard.set(
                     self.resolveConfigPath(workspacePath: resolvedWorkspacePath),
                     forKey: Self.configPathKey
@@ -837,5 +842,6 @@ class NativeAgentEventBridge: NativeEventCallback {
             "eventType": eventType,
             "payloadJson": payloadJson,
         ])
+        NativeAgentBridge.dispatch(eventType: eventType, payloadJson: payloadJson)
     }
 }

@@ -98,6 +98,7 @@ class NativeAgentPlugin : Plugin() {
                         data.put("eventType", eventType)
                         data.put("payloadJson", payloadJson)
                         notifyListeners("nativeAgentEvent", data)
+                        NativeAgentBridge.dispatch(eventType, payloadJson)
                     }
                 })
                 h.setNotifier(NativeNotifierImpl(context.applicationContext))
@@ -109,6 +110,7 @@ class NativeAgentPlugin : Plugin() {
                 }
                 h.persistConfig()
                 handle = h
+                NativeAgentBridge.setHandle(h)
                 context
                     .getSharedPreferences(STORAGE_FILE, android.content.Context.MODE_PRIVATE)
                     .edit()
@@ -530,6 +532,7 @@ class NativeAgentPlugin : Plugin() {
 
     override fun handleOnDestroy() {
         scope.cancel()
+        NativeAgentBridge.setHandle(null)
         handle = null
     }
 
