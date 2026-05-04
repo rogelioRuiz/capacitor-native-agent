@@ -216,7 +216,8 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                     provider: call.getString("provider"),
                     systemPrompt: call.getString("systemPrompt") ?? "",
                     maxTurns: call.getInt("maxTurns").map { UInt32($0) },
-                    skillAllowedToolsJson: call.getString("skillAllowedToolsJson")
+                    skillAllowedToolsJson: call.getString("skillAllowedToolsJson"),
+                    priorMessagesJson: call.getString("priorMessagesJson")
                 )
                 let runId = try h.sendMessage(params: params)
                 call.resolve(["runId": runId])
