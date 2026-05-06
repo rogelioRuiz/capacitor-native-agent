@@ -243,6 +243,18 @@ export interface NativeAgentPlugin {
 
   respondToApproval(options: { toolCallId: string; approved: boolean; reason?: string }): Promise<void>
   respondToMcpTool(options: { toolCallId: string; resultJson: string; isError?: boolean }): Promise<void>
+  /**
+   * Replace the FFI's MCP tool manifest. Tools registered here become
+   * visible to the LLM (subject to `webviewOnly` filtering in background
+   * mode) and, when invoked, surface as `mcp_tool_call` events that the
+   * host must answer with `respondToMcpTool`. Idempotent — every call
+   * replaces the prior manifest.
+   *
+   * `toolsJson` is a JSON-encoded array of
+   *   { name, description?, inputSchema?, webviewOnly?, approvalPolicy? }.
+   * Returns the count of registered tools.
+   */
+  setMcpTools(options: { toolsJson: string }): Promise<{ count: number }>
 
   // ── Auth ──
 

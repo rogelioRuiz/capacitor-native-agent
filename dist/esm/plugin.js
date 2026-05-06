@@ -9,6 +9,7 @@ class NativeAgentWeb extends WebPlugin {
     async steer() { throw this.unavailable(ERR); }
     async respondToApproval() { throw this.unavailable(ERR); }
     async respondToMcpTool() { throw this.unavailable(ERR); }
+    async setMcpTools() { throw this.unavailable(ERR); }
     async getAuthToken() { throw this.unavailable(ERR); }
     async setAuthKey() { throw this.unavailable(ERR); }
     async deleteAuth() { throw this.unavailable(ERR); }

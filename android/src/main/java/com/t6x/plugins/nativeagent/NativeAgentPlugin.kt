@@ -200,6 +200,15 @@ class NativeAgentPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun setMcpTools(call: PluginCall) = withHandle(call) { h ->
+        val toolsJson = call.getString("toolsJson") ?: return@withHandle call.reject("toolsJson is required")
+        val count = h.setMcpTools(toolsJson).toInt()
+        val result = JSObject()
+        result.put("count", count)
+        call.resolve(result)
+    }
+
+    @PluginMethod
     fun respondToCronApproval(call: PluginCall) = withHandle(call) { h ->
         h.respondToCronApproval(
             call.getString("requestId") ?: return@withHandle call.reject("requestId is required"),

@@ -13,6 +13,7 @@ class NativeAgentWeb extends WebPlugin implements NativeAgentPlugin {
   async steer(): Promise<void> { throw this.unavailable(ERR) }
   async respondToApproval(): Promise<void> { throw this.unavailable(ERR) }
   async respondToMcpTool(): Promise<void> { throw this.unavailable(ERR) }
+  async setMcpTools(): Promise<any> { throw this.unavailable(ERR) }
   async getAuthToken(): Promise<any> { throw this.unavailable(ERR) }
   async setAuthKey(): Promise<void> { throw this.unavailable(ERR) }
   async deleteAuth(): Promise<void> { throw this.unavailable(ERR) }

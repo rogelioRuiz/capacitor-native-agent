@@ -18,6 +18,7 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
         // Approval gate
         CAPPluginMethod(name: "respondToApproval", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "respondToMcpTool", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMcpTools", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "respondToCronApproval", returnType: CAPPluginReturnPromise),
         // Auth
         CAPPluginMethod(name: "getAuthToken", returnType: CAPPluginReturnPromise),
@@ -294,6 +295,20 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve()
             } catch {
                 call.reject("respondToMcpTool failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func setMcpTools(_ call: CAPPluginCall) {
+        withHandle(call) { h in
+            guard let toolsJson = call.getString("toolsJson") else {
+                return call.reject("toolsJson is required")
+            }
+            do {
+                let count = try h.setMcpTools(toolsJson: toolsJson)
+                call.resolve(["count": Int(count)])
+            } catch {
+                call.reject("setMcpTools failed: \(error.localizedDescription)")
             }
         }
     }
