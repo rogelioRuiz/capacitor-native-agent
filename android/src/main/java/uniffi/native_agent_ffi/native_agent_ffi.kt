@@ -894,6 +894,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config(
     ): Short
+    external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_mcp_tools(
+    ): Short
     external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_memory_provider(
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_notifier(
@@ -1057,6 +1059,8 @@ external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_governance_
 ): Unit
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_heartbeat_config(`ptr`: Long,`configJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
+external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_mcp_tools(`ptr`: Long,`toolsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Int
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_memory_provider(`ptr`: Long,`provider`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_notifier(`ptr`: Long,`notifier`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1338,6 +1342,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config() != 33968.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_mcp_tools() != 15664.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_memory_provider() != 23171.toShort()) {
@@ -2053,6 +2060,14 @@ public interface NativeAgentHandleInterface {
      * Set heartbeat config.
      */
     fun `setHeartbeatConfig`(`configJson`: kotlin.String)
+    
+    /**
+     * Replace the FFI's MCP tool manifest. Tools registered here become
+     * visible to the LLM and, when called, surface as `mcp_tool_call`
+     * events that the host must answer with `respond_to_mcp_tool`.
+     * Idempotent — every call replaces the prior manifest.
+     */
+    fun `setMcpTools`(`toolsJson`: kotlin.String): kotlin.UInt
     
     fun `setMemoryProvider`(`provider`: MemoryProvider)
     
@@ -2913,6 +2928,26 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
 }
     }
     
+    
+
+    
+    /**
+     * Replace the FFI's MCP tool manifest. Tools registered here become
+     * visible to the LLM and, when called, surface as `mcp_tool_call`
+     * events that the host must answer with `respond_to_mcp_tool`.
+     * Idempotent — every call replaces the prior manifest.
+     */
+    @Throws(NativeAgentException::class)override fun `setMcpTools`(`toolsJson`: kotlin.String): kotlin.UInt {
+            return FfiConverterUInt.lift(
+    callWithHandle {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_mcp_tools(
+        it,
+        FfiConverterString.lower(`toolsJson`),_status)
+}
+    }
+    )
+    }
     
 
     
