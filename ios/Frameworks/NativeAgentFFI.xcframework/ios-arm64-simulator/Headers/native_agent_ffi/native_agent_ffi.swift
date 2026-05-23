@@ -751,6 +751,14 @@ public protocol NativeAgentHandleProtocol: AnyObject, Sendable {
      */
     func setHeartbeatConfig(configJson: String) throws 
     
+    /**
+     * Replace the FFI's MCP tool manifest. Tools registered here become
+     * visible to the LLM and, when called, surface as `mcp_tool_call`
+     * events that the host must answer with `respond_to_mcp_tool`.
+     * Idempotent — every call replaces the prior manifest.
+     */
+    func setMcpTools(toolsJson: String) throws  -> UInt32
+    
     func setMemoryProvider(provider: MemoryProvider) throws 
     
     func setNotifier(notifier: NativeNotifier) throws 
@@ -1365,6 +1373,21 @@ open func setHeartbeatConfig(configJson: String)throws   {try rustCallWithError(
         FfiConverterString.lower(configJson),$0
     )
 }
+}
+    
+    /**
+     * Replace the FFI's MCP tool manifest. Tools registered here become
+     * visible to the LLM and, when called, surface as `mcp_tool_call`
+     * events that the host must answer with `respond_to_mcp_tool`.
+     * Idempotent — every call replaces the prior manifest.
+     */
+open func setMcpTools(toolsJson: String)throws  -> UInt32  {
+    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_mcp_tools(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(toolsJson),$0
+    )
+})
 }
     
 open func setMemoryProvider(provider: MemoryProvider)throws   {try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
@@ -3448,6 +3471,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config() != 33968) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_mcp_tools() != 15664) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_memory_provider() != 23171) {
