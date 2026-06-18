@@ -626,9 +626,12 @@ internal interface UniffiCallbackInterfaceGovernanceProviderMethod3 : com.sun.jn
     fun callback(`uniffiHandle`: Long,`sinkType`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceGovernanceProviderMethod4 : com.sun.jna.Callback {
-    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+    fun callback(`uniffiHandle`: Long,`key`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,`labels`: RustBuffer.ByValue,`source`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceGovernanceProviderMethod5 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod6 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`modelId`: RustBuffer.ByValue,`inputTokens`: Int,`outputTokens`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceMemoryProviderMethod0 : com.sun.jna.Callback {
@@ -658,7 +661,7 @@ internal interface UniffiCallbackInterfaceAuthProfileStoreMethod0 : com.sun.jna.
 internal interface UniffiCallbackInterfaceAuthProfileStoreMethod1 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`profilesJson`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
-@Structure.FieldOrder("uniffiFree", "uniffiClone", "checkLoop", "recordOutcome", "recordAudit", "checkSink", "reset", "recordUsage")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "checkLoop", "recordOutcome", "recordAudit", "checkSink", "registerTaint", "reset", "recordUsage")
 internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
     @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
@@ -666,8 +669,9 @@ internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
     @JvmField internal var `recordOutcome`: UniffiCallbackInterfaceGovernanceProviderMethod1? = null,
     @JvmField internal var `recordAudit`: UniffiCallbackInterfaceGovernanceProviderMethod2? = null,
     @JvmField internal var `checkSink`: UniffiCallbackInterfaceGovernanceProviderMethod3? = null,
-    @JvmField internal var `reset`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
-    @JvmField internal var `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
+    @JvmField internal var `registerTaint`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
+    @JvmField internal var `reset`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
+    @JvmField internal var `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod6? = null,
 ) : Structure() {
     class UniffiByValue(
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
@@ -676,9 +680,10 @@ internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
         `recordOutcome`: UniffiCallbackInterfaceGovernanceProviderMethod1? = null,
         `recordAudit`: UniffiCallbackInterfaceGovernanceProviderMethod2? = null,
         `checkSink`: UniffiCallbackInterfaceGovernanceProviderMethod3? = null,
-        `reset`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
-        `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
-    ): UniffiVTableCallbackInterfaceGovernanceProvider(`uniffiFree`,`uniffiClone`,`checkLoop`,`recordOutcome`,`recordAudit`,`checkSink`,`reset`,`recordUsage`,), Structure.ByValue
+        `registerTaint`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
+        `reset`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
+        `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod6? = null,
+    ): UniffiVTableCallbackInterfaceGovernanceProvider(`uniffiFree`,`uniffiClone`,`checkLoop`,`recordOutcome`,`recordAudit`,`checkSink`,`registerTaint`,`reset`,`recordUsage`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceGovernanceProvider) {
         `uniffiFree` = other.`uniffiFree`
@@ -687,6 +692,7 @@ internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
         `recordOutcome` = other.`recordOutcome`
         `recordAudit` = other.`recordAudit`
         `checkSink` = other.`checkSink`
+        `registerTaint` = other.`registerTaint`
         `reset` = other.`reset`
         `recordUsage` = other.`recordUsage`
     }
@@ -924,6 +930,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink(
     ): Short
+    external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_register_taint(
+    ): Short
     external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_reset(
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage(
@@ -1051,7 +1059,7 @@ external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_send_message(`p
 ): RustBuffer.ByValue
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_serialize_agent_event_json(`ptr`: Long,`eventType`: RustBuffer.ByValue,`payloadJson`: RustBuffer.ByValue,`sessionKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Long,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,`refresh`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Long,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,`refresh`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,`baseUrl`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_event_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
@@ -1305,7 +1313,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_reset_tool_permissions() != 15060.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval() != 3194.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval() != 56876.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_cron_approval() != 851.toShort()) {
@@ -1332,7 +1340,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_serialize_agent_event_json() != 40873.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 1639.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 12658.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165.toShort()) {
@@ -1389,10 +1397,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink() != 37338.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_reset() != 57214.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_register_taint() != 17176.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 907.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_reset() != 47675.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 32049.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_memoryprovider_store() != 49136.toShort()) {
@@ -1992,7 +2003,12 @@ public interface NativeAgentHandleInterface {
     fun `resetToolPermissions`()
     
     /**
-     * Respond to a tool approval request.
+     * Respond to a tool approval request (legacy boolean entry point).
+     *
+     * Retained as the UniFFI-facing API for mobile callers that pass a plain
+     * boolean. Internally delegates to `respond_to_approval_decision` (a
+     * Rust-only helper, not UniFFI-exported) with no `decision`/`answers`,
+     * preserving today's behavior.
      */
     fun `respondToApproval`(`toolCallId`: kotlin.String, `approved`: kotlin.Boolean, `reason`: kotlin.String?)
     
@@ -2042,8 +2058,13 @@ public interface NativeAgentHandleInterface {
     
     /**
      * Set an auth key for a provider.
+     *
+     * `base_url`, when set, overrides the provider's hardcoded endpoint — used
+     * to point the driver at a backend proxy that injects the real API key
+     * server-side, so the device never holds the provider secret. `None` ⇒
+     * the provider's default endpoint (unchanged behavior).
      */
-    fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?)
+    fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?)
     
     /**
      * Set the event callback for receiving agent events.
@@ -2714,7 +2735,12 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
 
     
     /**
-     * Respond to a tool approval request.
+     * Respond to a tool approval request (legacy boolean entry point).
+     *
+     * Retained as the UniFFI-facing API for mobile callers that pass a plain
+     * boolean. Internally delegates to `respond_to_approval_decision` (a
+     * Rust-only helper, not UniFFI-exported) with no `decision`/`answers`,
+     * preserving today's behavior.
      */
     @Throws(NativeAgentException::class)override fun `respondToApproval`(`toolCallId`: kotlin.String, `approved`: kotlin.Boolean, `reason`: kotlin.String?)
         = 
@@ -2868,14 +2894,19 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     
     /**
      * Set an auth key for a provider.
+     *
+     * `base_url`, when set, overrides the provider's hardcoded endpoint — used
+     * to point the driver at a backend proxy that injects the real API key
+     * server-side, so the device never holds the provider secret. `None` ⇒
+     * the provider's default endpoint (unchanged behavior).
      */
-    @Throws(NativeAgentException::class)override fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?)
+    @Throws(NativeAgentException::class)override fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?)
         = 
     callWithHandle {
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(
         it,
-        FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),FfiConverterOptionalString.lower(`refresh`),FfiConverterOptionalLong.lower(`expiresAt`),_status)
+        FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),FfiConverterOptionalString.lower(`refresh`),FfiConverterOptionalLong.lower(`expiresAt`),FfiConverterOptionalString.lower(`baseUrl`),_status)
 }
     }
     
@@ -3445,6 +3476,12 @@ data class SendMessageParams (
      * JSON-encoded prior conversation messages for multi-turn sessions.
      */
     var `priorMessagesJson`: kotlin.String?
+    , 
+    /**
+     * Create-only plan-mode seed (Stage 4b). Honored when starting a NEW
+     * session; the persisted store value is authoritative on resume.
+     */
+    var `planModeInit`: kotlin.Boolean?
     
 ){
     
@@ -3469,6 +3506,7 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterOptionalUInt.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalBoolean.read(buf),
         )
     }
 
@@ -3480,7 +3518,8 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterString.allocationSize(value.`systemPrompt`) +
             FfiConverterOptionalUInt.allocationSize(value.`maxTurns`) +
             FfiConverterOptionalString.allocationSize(value.`skillAllowedToolsJson`) +
-            FfiConverterOptionalString.allocationSize(value.`priorMessagesJson`)
+            FfiConverterOptionalString.allocationSize(value.`priorMessagesJson`) +
+            FfiConverterOptionalBoolean.allocationSize(value.`planModeInit`)
     )
 
     override fun write(value: SendMessageParams, buf: ByteBuffer) {
@@ -3492,6 +3531,7 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterOptionalUInt.write(value.`maxTurns`, buf)
             FfiConverterOptionalString.write(value.`skillAllowedToolsJson`, buf)
             FfiConverterOptionalString.write(value.`priorMessagesJson`, buf)
+            FfiConverterOptionalBoolean.write(value.`planModeInit`, buf)
     }
 }
 
@@ -3860,6 +3900,19 @@ public interface GovernanceProvider {
     fun `checkSink`(`sinkType`: kotlin.String, `content`: kotlin.String): kotlin.String
     
     /**
+     * Register a tainted value for data-flow tracking (agent-os taint uptake).
+     * `labels` is a comma-separated set drawn from
+     * `Pii|Secret|ExternalNetwork|UserInput|UntrustedAgent`; a later
+     * `check_sink` blocks if a registered value reaches a sink that forbids one
+     * of its labels (e.g. ExternalNetwork content flowing into ShellExec).
+     * (No default: `#[uniffi::export]` callback-interface methods can't be
+     * defaulted — every host impl must provide it. Mobile delegates to its
+     * `TaintTracker::register`; a host with no taint engine implements it as a
+     * no-op.)
+     */
+    fun `registerTaint`(`key`: kotlin.String, `value`: kotlin.String, `labels`: kotlin.String, `source`: kotlin.String)
+    
+    /**
      * Reset loop guard state (e.g. on new session).
      */
     fun `reset`()
@@ -3931,7 +3984,22 @@ internal object uniffiCallbackInterfaceGovernanceProvider {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
-    internal object `reset`: UniffiCallbackInterfaceGovernanceProviderMethod4 {
+    internal object `registerTaint`: UniffiCallbackInterfaceGovernanceProviderMethod4 {
+        override fun callback(`uniffiHandle`: Long,`key`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,`labels`: RustBuffer.ByValue,`source`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`registerTaint`(
+                    FfiConverterString.lift(`key`),
+                    FfiConverterString.lift(`value`),
+                    FfiConverterString.lift(`labels`),
+                    FfiConverterString.lift(`source`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `reset`: UniffiCallbackInterfaceGovernanceProviderMethod5 {
         override fun callback(`uniffiHandle`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
             val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
             val makeCall = { ->
@@ -3942,7 +4010,7 @@ internal object uniffiCallbackInterfaceGovernanceProvider {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
-    internal object `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod5 {
+    internal object `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod6 {
         override fun callback(`uniffiHandle`: Long,`modelId`: RustBuffer.ByValue,`inputTokens`: Int,`outputTokens`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
             val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
             val makeCall = { ->
@@ -3976,6 +4044,7 @@ internal object uniffiCallbackInterfaceGovernanceProvider {
         `recordOutcome`,
         `recordAudit`,
         `checkSink`,
+        `registerTaint`,
         `reset`,
         `recordUsage`,
     )
@@ -4317,6 +4386,38 @@ public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
         } else {
             buf.put(1)
             FfiConverterLong.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalBoolean: FfiConverterRustBuffer<kotlin.Boolean?> {
+    override fun read(buf: ByteBuffer): kotlin.Boolean? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterBoolean.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Boolean?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterBoolean.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Boolean?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterBoolean.write(value, buf)
         }
     }
 }

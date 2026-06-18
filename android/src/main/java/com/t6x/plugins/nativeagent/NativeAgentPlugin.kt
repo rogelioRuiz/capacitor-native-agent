@@ -236,6 +236,8 @@ class NativeAgentPlugin : Plugin() {
             call.getString("authType") ?: "api_key",
             call.getString("refresh"),
             if (call.hasOption("expiresAt")) call.getLong("expiresAt") else null,
+            // Optional endpoint override (e.g. a backend proxy holding the real key).
+            call.getString("baseUrl"),
         )
         call.resolve()
     }

@@ -353,13 +353,16 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             let refresh: String? = call.getString("refresh")
             let expiresAt: Int64? = (call.options["expiresAt"] as? NSNumber)?.int64Value
+            // Optional endpoint override (e.g. a backend proxy holding the real key).
+            let baseUrl: String? = call.getString("baseUrl")
             do {
                 try h.setAuthKey(
                     key: key,
                     provider: call.getString("provider") ?? "anthropic",
                     authType: call.getString("authType") ?? "api_key",
                     refresh: refresh,
-                    expiresAt: expiresAt
+                    expiresAt: expiresAt,
+                    baseUrl: baseUrl
                 )
                 call.resolve()
             } catch {
