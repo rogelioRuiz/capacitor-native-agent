@@ -218,7 +218,10 @@ public class NativeAgentPlugin: CAPPlugin, CAPBridgedPlugin {
                     systemPrompt: call.getString("systemPrompt") ?? "",
                     maxTurns: call.getInt("maxTurns").map { UInt32($0) },
                     skillAllowedToolsJson: call.getString("skillAllowedToolsJson"),
-                    priorMessagesJson: call.getString("priorMessagesJson")
+                    priorMessagesJson: call.getString("priorMessagesJson"),
+                    // Create-only plan-mode seed; nil preserves prior behavior (the
+                    // persisted store value is authoritative on resume).
+                    planModeInit: call.getBool("planModeInit")
                 )
                 let runId = try h.sendMessage(params: params)
                 call.resolve(["runId": runId])

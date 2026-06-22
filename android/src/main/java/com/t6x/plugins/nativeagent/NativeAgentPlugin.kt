@@ -148,6 +148,9 @@ class NativeAgentPlugin : Plugin() {
             maxTurns = call.getInt("maxTurns")?.toUInt(),
             skillAllowedToolsJson = call.getString("skillAllowedToolsJson"),
             priorMessagesJson = call.getString("priorMessagesJson"),
+            // Create-only plan-mode seed; null preserves prior behavior (the
+            // persisted store value is authoritative on resume).
+            planModeInit = if (call.hasOption("planModeInit")) call.getBoolean("planModeInit") else null,
         )
         val runId = h.sendMessage(params)
         android.util.Log.i("TRACE:kt", "sendMessage OK runId=$runId")
