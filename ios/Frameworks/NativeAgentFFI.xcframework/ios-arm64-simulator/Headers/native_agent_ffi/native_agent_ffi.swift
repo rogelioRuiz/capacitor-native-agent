@@ -682,7 +682,12 @@ public protocol NativeAgentHandleProtocol: AnyObject, Sendable {
     func resetToolPermissions() throws 
     
     /**
-     * Respond to a tool approval request.
+     * Respond to a tool approval request (legacy boolean entry point).
+     *
+     * Retained as the UniFFI-facing API for mobile callers that pass a plain
+     * boolean. Internally delegates to `respond_to_approval_decision` (a
+     * Rust-only helper, not UniFFI-exported) with no `decision`/`answers`,
+     * preserving today's behavior.
      */
     func respondToApproval(toolCallId: String, approved: Bool, reason: String?) throws 
     
@@ -732,8 +737,13 @@ public protocol NativeAgentHandleProtocol: AnyObject, Sendable {
     
     /**
      * Set an auth key for a provider.
+     *
+     * `base_url`, when set, overrides the provider's hardcoded endpoint — used
+     * to point the driver at a backend proxy that injects the real API key
+     * server-side, so the device never holds the provider secret. `None` ⇒
+     * the provider's default endpoint (unchanged behavior).
      */
-    func setAuthKey(key: String, provider: String, authType: String, refresh: String?, expiresAt: Int64?) throws 
+    func setAuthKey(key: String, provider: String, authType: String, refresh: String?, expiresAt: Int64?, baseUrl: String?) throws 
     
     /**
      * Set the event callback for receiving agent events.
@@ -750,6 +760,14 @@ public protocol NativeAgentHandleProtocol: AnyObject, Sendable {
      * Set heartbeat config.
      */
     func setHeartbeatConfig(configJson: String) throws 
+    
+    /**
+     * Replace the FFI's MCP tool manifest. Tools registered here become
+     * visible to the LLM and, when called, surface as `mcp_tool_call`
+     * events that the host must answer with `respond_to_mcp_tool`.
+     * Idempotent — every call replaces the prior manifest.
+     */
+    func setMcpTools(toolsJson: String) throws  -> UInt32
     
     func setMemoryProvider(provider: MemoryProvider) throws 
     
@@ -1200,7 +1218,12 @@ open func resetToolPermissions()throws   {try rustCallWithError(FfiConverterType
 }
     
     /**
-     * Respond to a tool approval request.
+     * Respond to a tool approval request (legacy boolean entry point).
+     *
+     * Retained as the UniFFI-facing API for mobile callers that pass a plain
+     * boolean. Internally delegates to `respond_to_approval_decision` (a
+     * Rust-only helper, not UniFFI-exported) with no `decision`/`answers`,
+     * preserving today's behavior.
      */
 open func respondToApproval(toolCallId: String, approved: Bool, reason: String?)throws   {try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_respond_to_approval(
@@ -1320,15 +1343,21 @@ open func serializeAgentEventJson(eventType: String, payloadJson: String, sessio
     
     /**
      * Set an auth key for a provider.
+     *
+     * `base_url`, when set, overrides the provider's hardcoded endpoint — used
+     * to point the driver at a backend proxy that injects the real API key
+     * server-side, so the device never holds the provider secret. `None` ⇒
+     * the provider's default endpoint (unchanged behavior).
      */
-open func setAuthKey(key: String, provider: String, authType: String, refresh: String?, expiresAt: Int64?)throws   {try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
+open func setAuthKey(key: String, provider: String, authType: String, refresh: String?, expiresAt: Int64?, baseUrl: String?)throws   {try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
     uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(key),
         FfiConverterString.lower(provider),
         FfiConverterString.lower(authType),
         FfiConverterOptionString.lower(refresh),
-        FfiConverterOptionInt64.lower(expiresAt),$0
+        FfiConverterOptionInt64.lower(expiresAt),
+        FfiConverterOptionString.lower(baseUrl),$0
     )
 }
 }
@@ -1365,6 +1394,21 @@ open func setHeartbeatConfig(configJson: String)throws   {try rustCallWithError(
         FfiConverterString.lower(configJson),$0
     )
 }
+}
+    
+    /**
+     * Replace the FFI's MCP tool manifest. Tools registered here become
+     * visible to the LLM and, when called, surface as `mcp_tool_call`
+     * events that the host must answer with `respond_to_mcp_tool`.
+     * Idempotent — every call replaces the prior manifest.
+     */
+open func setMcpTools(toolsJson: String)throws  -> UInt32  {
+    return try  FfiConverterUInt32.lift(try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
+    uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_mcp_tools(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(toolsJson),$0
+    )
+})
 }
     
 open func setMemoryProvider(provider: MemoryProvider)throws   {try rustCallWithError(FfiConverterTypeNativeAgentError_lift) {
@@ -1913,6 +1957,11 @@ public struct SendMessageParams: Equatable, Hashable {
      * JSON-encoded prior conversation messages for multi-turn sessions.
      */
     public var priorMessagesJson: String?
+    /**
+     * Create-only plan-mode seed (Stage 4b). Honored when starting a NEW
+     * session; the persisted store value is authoritative on resume.
+     */
+    public var planModeInit: Bool?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -1924,7 +1973,11 @@ public struct SendMessageParams: Equatable, Hashable {
          */skillAllowedToolsJson: String?, 
         /**
          * JSON-encoded prior conversation messages for multi-turn sessions.
-         */priorMessagesJson: String?) {
+         */priorMessagesJson: String?, 
+        /**
+         * Create-only plan-mode seed (Stage 4b). Honored when starting a NEW
+         * session; the persisted store value is authoritative on resume.
+         */planModeInit: Bool?) {
         self.prompt = prompt
         self.sessionKey = sessionKey
         self.model = model
@@ -1933,6 +1986,7 @@ public struct SendMessageParams: Equatable, Hashable {
         self.maxTurns = maxTurns
         self.skillAllowedToolsJson = skillAllowedToolsJson
         self.priorMessagesJson = priorMessagesJson
+        self.planModeInit = planModeInit
     }
 
     
@@ -1958,7 +2012,8 @@ public struct FfiConverterTypeSendMessageParams: FfiConverterRustBuffer {
                 systemPrompt: FfiConverterString.read(from: &buf), 
                 maxTurns: FfiConverterOptionUInt32.read(from: &buf), 
                 skillAllowedToolsJson: FfiConverterOptionString.read(from: &buf), 
-                priorMessagesJson: FfiConverterOptionString.read(from: &buf)
+                priorMessagesJson: FfiConverterOptionString.read(from: &buf), 
+                planModeInit: FfiConverterOptionBool.read(from: &buf)
         )
     }
 
@@ -1971,6 +2026,7 @@ public struct FfiConverterTypeSendMessageParams: FfiConverterRustBuffer {
         FfiConverterOptionUInt32.write(value.maxTurns, into: &buf)
         FfiConverterOptionString.write(value.skillAllowedToolsJson, into: &buf)
         FfiConverterOptionString.write(value.priorMessagesJson, into: &buf)
+        FfiConverterOptionBool.write(value.planModeInit, into: &buf)
     }
 }
 
@@ -2393,6 +2449,19 @@ public protocol GovernanceProvider: AnyObject, Sendable {
     func checkSink(sinkType: String, content: String)  -> String
     
     /**
+     * Register a tainted value for data-flow tracking (agent-os taint uptake).
+     * `labels` is a comma-separated set drawn from
+     * `Pii|Secret|ExternalNetwork|UserInput|UntrustedAgent`; a later
+     * `check_sink` blocks if a registered value reaches a sink that forbids one
+     * of its labels (e.g. ExternalNetwork content flowing into ShellExec).
+     * (No default: `#[uniffi::export]` callback-interface methods can't be
+     * defaulted — every host impl must provide it. Mobile delegates to its
+     * `TaintTracker::register`; a host with no taint engine implements it as a
+     * no-op.)
+     */
+    func registerTaint(key: String, value: String, labels: String, source: String) 
+    
+    /**
      * Reset loop guard state (e.g. on new session).
      */
     func reset() 
@@ -2531,6 +2600,36 @@ fileprivate struct UniffiCallbackInterfaceGovernanceProvider {
 
             
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        registerTaint: { (
+            uniffiHandle: UInt64,
+            key: RustBuffer,
+            value: RustBuffer,
+            labels: RustBuffer,
+            source: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceGovernanceProvider.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.registerTaint(
+                     key: try FfiConverterString.lift(key),
+                     value: try FfiConverterString.lift(value),
+                     labels: try FfiConverterString.lift(labels),
+                     source: try FfiConverterString.lift(source)
+                )
+            }
+
+            
+            let writeReturn = { () }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
                 makeCall: makeCall,
@@ -3241,6 +3340,30 @@ fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionBool: FfiConverterRustBuffer {
+    typealias SwiftType = Bool?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterBool.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterBool.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -3411,7 +3534,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_reset_tool_permissions() != 15060) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval() != 3194) {
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_approval() != 56876) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_respond_to_cron_approval() != 851) {
@@ -3438,7 +3561,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_serialize_agent_event_json() != 40873) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 1639) {
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 12658) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165) {
@@ -3448,6 +3571,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat_config() != 33968) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_mcp_tools() != 15664) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_memory_provider() != 23171) {
@@ -3492,10 +3618,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink() != 37338) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_reset() != 57214) {
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_register_taint() != 17176) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 907) {
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_reset() != 47675) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 32049) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_native_agent_ffi_checksum_method_memoryprovider_store() != 49136) {

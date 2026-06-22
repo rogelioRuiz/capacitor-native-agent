@@ -273,14 +273,21 @@ typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod3)(uint64_t, RustB
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD4
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD4
-typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod4)(uint64_t, void* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod4)(uint64_t, RustBuffer, RustBuffer, RustBuffer, RustBuffer, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD5
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD5
-typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod5)(uint64_t, RustBuffer, uint32_t, uint32_t, void* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod5)(uint64_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD6
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_GOVERNANCE_PROVIDER_METHOD6
+typedef void (*UniffiCallbackInterfaceGovernanceProviderMethod6)(uint64_t, RustBuffer, uint32_t, uint32_t, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 
@@ -357,8 +364,9 @@ typedef struct UniffiVTableCallbackInterfaceGovernanceProvider {
     UniffiCallbackInterfaceGovernanceProviderMethod1 _Nonnull recordOutcome;
     UniffiCallbackInterfaceGovernanceProviderMethod2 _Nonnull recordAudit;
     UniffiCallbackInterfaceGovernanceProviderMethod3 _Nonnull checkSink;
-    UniffiCallbackInterfaceGovernanceProviderMethod4 _Nonnull reset;
-    UniffiCallbackInterfaceGovernanceProviderMethod5 _Nonnull recordUsage;
+    UniffiCallbackInterfaceGovernanceProviderMethod4 _Nonnull registerTaint;
+    UniffiCallbackInterfaceGovernanceProviderMethod5 _Nonnull reset;
+    UniffiCallbackInterfaceGovernanceProviderMethod6 _Nonnull recordUsage;
 } UniffiVTableCallbackInterfaceGovernanceProvider;
 
 #endif
@@ -610,7 +618,7 @@ RustBuffer uniffi_native_agent_ffi_fn_method_nativeagenthandle_serialize_agent_e
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_AUTH_KEY
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_AUTH_KEY
-void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(uint64_t ptr, RustBuffer key, RustBuffer provider, RustBuffer auth_type, RustBuffer refresh, RustBuffer expires_at, RustCallStatus *_Nonnull out_status
+void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(uint64_t ptr, RustBuffer key, RustBuffer provider, RustBuffer auth_type, RustBuffer refresh, RustBuffer expires_at, RustBuffer base_url, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_EVENT_CALLBACK
@@ -626,6 +634,11 @@ void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_governance_provider
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_HEARTBEAT_CONFIG
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_HEARTBEAT_CONFIG
 void uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_heartbeat_config(uint64_t ptr, RustBuffer config_json, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_MCP_TOOLS
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_MCP_TOOLS
+uint32_t uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_mcp_tools(uint64_t ptr, RustBuffer tools_json, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_FN_METHOD_NATIVEAGENTHANDLE_SET_MEMORY_PROVIDER
@@ -1232,6 +1245,12 @@ uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_heartbeat
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_MCP_TOOLS
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_MCP_TOOLS
+uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_mcp_tools(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_MEMORY_PROVIDER
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_NATIVEAGENTHANDLE_SET_MEMORY_PROVIDER
 uint16_t uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_memory_provider(void
@@ -1313,6 +1332,12 @@ uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_record_audit
 #ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_CHECK_SINK
 #define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_CHECK_SINK
 uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_check_sink(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_REGISTER_TAINT
+#define UNIFFI_FFIDEF_UNIFFI_NATIVE_AGENT_FFI_CHECKSUM_METHOD_GOVERNANCEPROVIDER_REGISTER_TAINT
+uint16_t uniffi_native_agent_ffi_checksum_method_governanceprovider_register_taint(void
     
 );
 #endif
