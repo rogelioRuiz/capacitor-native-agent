@@ -634,6 +634,9 @@ internal interface UniffiCallbackInterfaceGovernanceProviderMethod5 : com.sun.jn
 internal interface UniffiCallbackInterfaceGovernanceProviderMethod6 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`modelId`: RustBuffer.ByValue,`inputTokens`: Int,`outputTokens`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
+internal interface UniffiCallbackInterfaceGovernanceProviderMethod7 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`messagesJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceMemoryProviderMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`key`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,`metadataJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -661,7 +664,7 @@ internal interface UniffiCallbackInterfaceAuthProfileStoreMethod0 : com.sun.jna.
 internal interface UniffiCallbackInterfaceAuthProfileStoreMethod1 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`profilesJson`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
-@Structure.FieldOrder("uniffiFree", "uniffiClone", "checkLoop", "recordOutcome", "recordAudit", "checkSink", "registerTaint", "reset", "recordUsage")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "checkLoop", "recordOutcome", "recordAudit", "checkSink", "registerTaint", "reset", "recordUsage", "repairMessages")
 internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
     @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
@@ -672,6 +675,7 @@ internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
     @JvmField internal var `registerTaint`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
     @JvmField internal var `reset`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
     @JvmField internal var `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod6? = null,
+    @JvmField internal var `repairMessages`: UniffiCallbackInterfaceGovernanceProviderMethod7? = null,
 ) : Structure() {
     class UniffiByValue(
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
@@ -683,7 +687,8 @@ internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
         `registerTaint`: UniffiCallbackInterfaceGovernanceProviderMethod4? = null,
         `reset`: UniffiCallbackInterfaceGovernanceProviderMethod5? = null,
         `recordUsage`: UniffiCallbackInterfaceGovernanceProviderMethod6? = null,
-    ): UniffiVTableCallbackInterfaceGovernanceProvider(`uniffiFree`,`uniffiClone`,`checkLoop`,`recordOutcome`,`recordAudit`,`checkSink`,`registerTaint`,`reset`,`recordUsage`,), Structure.ByValue
+        `repairMessages`: UniffiCallbackInterfaceGovernanceProviderMethod7? = null,
+    ): UniffiVTableCallbackInterfaceGovernanceProvider(`uniffiFree`,`uniffiClone`,`checkLoop`,`recordOutcome`,`recordAudit`,`checkSink`,`registerTaint`,`reset`,`recordUsage`,`repairMessages`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceGovernanceProvider) {
         `uniffiFree` = other.`uniffiFree`
@@ -695,6 +700,7 @@ internal open class UniffiVTableCallbackInterfaceGovernanceProvider(
         `registerTaint` = other.`registerTaint`
         `reset` = other.`reset`
         `recordUsage` = other.`recordUsage`
+        `repairMessages` = other.`repairMessages`
     }
 
 }
@@ -894,6 +900,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key(
     ): Short
+    external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key_with_sampling(
+    ): Short
     external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback(
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_governance_provider(
@@ -935,6 +943,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_reset(
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage(
+    ): Short
+    external fun uniffi_native_agent_ffi_checksum_method_governanceprovider_repair_messages(
     ): Short
     external fun uniffi_native_agent_ffi_checksum_method_memoryprovider_store(
     ): Short
@@ -1059,7 +1069,9 @@ external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_send_message(`p
 ): RustBuffer.ByValue
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_serialize_agent_event_json(`ptr`: Long,`eventType`: RustBuffer.ByValue,`payloadJson`: RustBuffer.ByValue,`sessionKey`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
-external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Long,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,`refresh`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,`baseUrl`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(`ptr`: Long,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,`refresh`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,`baseUrl`: RustBuffer.ByValue,`apiFormat`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key_with_sampling(`ptr`: Long,`key`: RustBuffer.ByValue,`provider`: RustBuffer.ByValue,`authType`: RustBuffer.ByValue,`refresh`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,`baseUrl`: RustBuffer.ByValue,`apiFormat`: RustBuffer.ByValue,`sampling`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_event_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
@@ -1340,7 +1352,10 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_serialize_agent_event_json() != 40873.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 12658.toShort()) {
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key() != 55.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_auth_key_with_sampling() != 50487.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_nativeagenthandle_set_event_callback() != 56165.toShort()) {
@@ -1404,6 +1419,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_record_usage() != 32049.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_native_agent_ffi_checksum_method_governanceprovider_repair_messages() != 26335.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_native_agent_ffi_checksum_method_memoryprovider_store() != 49136.toShort()) {
@@ -1647,6 +1665,29 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 /**
  * @suppress
  */
+public object FfiConverterULong: FfiConverter<ULong, Long> {
+    override fun lift(value: Long): ULong {
+        return value.toULong()
+    }
+
+    override fun read(buf: ByteBuffer): ULong {
+        return lift(buf.getLong())
+    }
+
+    override fun lower(value: ULong): Long {
+        return value.toLong()
+    }
+
+    override fun allocationSize(value: ULong) = 8UL
+
+    override fun write(value: ULong, buf: ByteBuffer) {
+        buf.putLong(value.toLong())
+    }
+}
+
+/**
+ * @suppress
+ */
 public object FfiConverterLong: FfiConverter<Long, Long> {
     override fun lift(value: Long): Long {
         return value
@@ -1664,6 +1705,29 @@ public object FfiConverterLong: FfiConverter<Long, Long> {
 
     override fun write(value: Long, buf: ByteBuffer) {
         buf.putLong(value)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterFloat: FfiConverter<Float, Float> {
+    override fun lift(value: Float): Float {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Float {
+        return buf.getFloat()
+    }
+
+    override fun lower(value: Float): Float {
+        return value
+    }
+
+    override fun allocationSize(value: Float) = 4UL
+
+    override fun write(value: Float, buf: ByteBuffer) {
+        buf.putFloat(value)
     }
 }
 
@@ -2058,13 +2122,13 @@ public interface NativeAgentHandleInterface {
     
     /**
      * Set an auth key for a provider.
-     *
-     * `base_url`, when set, overrides the provider's hardcoded endpoint — used
-     * to point the driver at a backend proxy that injects the real API key
-     * server-side, so the device never holds the provider secret. `None` ⇒
-     * the provider's default endpoint (unchanged behavior).
      */
-    fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?)
+    fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?, `apiFormat`: kotlin.String?)
+    
+    /**
+     * Set an auth key with optional main-turn sampling (OpenAI format only).
+     */
+    fun `setAuthKeyWithSampling`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?, `apiFormat`: kotlin.String?, `sampling`: Sampling?)
     
     /**
      * Set the event callback for receiving agent events.
@@ -2894,19 +2958,30 @@ open class NativeAgentHandle: Disposable, AutoCloseable, NativeAgentHandleInterf
     
     /**
      * Set an auth key for a provider.
-     *
-     * `base_url`, when set, overrides the provider's hardcoded endpoint — used
-     * to point the driver at a backend proxy that injects the real API key
-     * server-side, so the device never holds the provider secret. `None` ⇒
-     * the provider's default endpoint (unchanged behavior).
      */
-    @Throws(NativeAgentException::class)override fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?)
+    @Throws(NativeAgentException::class)override fun `setAuthKey`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?, `apiFormat`: kotlin.String?)
         = 
     callWithHandle {
     uniffiRustCallWithError(NativeAgentException) { _status ->
     UniffiLib.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key(
         it,
-        FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),FfiConverterOptionalString.lower(`refresh`),FfiConverterOptionalLong.lower(`expiresAt`),FfiConverterOptionalString.lower(`baseUrl`),_status)
+        FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),FfiConverterOptionalString.lower(`refresh`),FfiConverterOptionalLong.lower(`expiresAt`),FfiConverterOptionalString.lower(`baseUrl`),FfiConverterOptionalString.lower(`apiFormat`),_status)
+}
+    }
+    
+    
+
+    
+    /**
+     * Set an auth key with optional main-turn sampling (OpenAI format only).
+     */
+    @Throws(NativeAgentException::class)override fun `setAuthKeyWithSampling`(`key`: kotlin.String, `provider`: kotlin.String, `authType`: kotlin.String, `refresh`: kotlin.String?, `expiresAt`: kotlin.Long?, `baseUrl`: kotlin.String?, `apiFormat`: kotlin.String?, `sampling`: Sampling?)
+        = 
+    callWithHandle {
+    uniffiRustCallWithError(NativeAgentException) { _status ->
+    UniffiLib.uniffi_native_agent_ffi_fn_method_nativeagenthandle_set_auth_key_with_sampling(
+        it,
+        FfiConverterString.lower(`key`),FfiConverterString.lower(`provider`),FfiConverterString.lower(`authType`),FfiConverterOptionalString.lower(`refresh`),FfiConverterOptionalLong.lower(`expiresAt`),FfiConverterOptionalString.lower(`baseUrl`),FfiConverterOptionalString.lower(`apiFormat`),FfiConverterOptionalTypeSampling.lower(`sampling`),_status)
 }
     }
     
@@ -3214,6 +3289,20 @@ data class AuthTokenResult (
     var `apiKey`: kotlin.String?
     , 
     var `isOauth`: kotlin.Boolean
+    , 
+    /**
+     * Resolved per-profile LLM endpoint override (OpenAI-compat base, NO
+     * trailing `/v1`). `None` = the driver uses its built-in vendor default.
+     */
+    var `baseUrl`: kotlin.String?
+    , 
+    /**
+     * The wire protocol the resolved profile declares (`"openai"` |
+     * `"anthropic"`); routes provider ids the driver factory does not know.
+     */
+    var `apiFormat`: kotlin.String?
+    , 
+    var `sampling`: Sampling?
     
 ){
     
@@ -3232,17 +3321,26 @@ public object FfiConverterTypeAuthTokenResult: FfiConverterRustBuffer<AuthTokenR
         return AuthTokenResult(
             FfiConverterOptionalString.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeSampling.read(buf),
         )
     }
 
     override fun allocationSize(value: AuthTokenResult) = (
             FfiConverterOptionalString.allocationSize(value.`apiKey`) +
-            FfiConverterBoolean.allocationSize(value.`isOauth`)
+            FfiConverterBoolean.allocationSize(value.`isOauth`) +
+            FfiConverterOptionalString.allocationSize(value.`baseUrl`) +
+            FfiConverterOptionalString.allocationSize(value.`apiFormat`) +
+            FfiConverterOptionalTypeSampling.allocationSize(value.`sampling`)
     )
 
     override fun write(value: AuthTokenResult, buf: ByteBuffer) {
             FfiConverterOptionalString.write(value.`apiKey`, buf)
             FfiConverterBoolean.write(value.`isOauth`, buf)
+            FfiConverterOptionalString.write(value.`baseUrl`, buf)
+            FfiConverterOptionalString.write(value.`apiFormat`, buf)
+            FfiConverterOptionalTypeSampling.write(value.`sampling`, buf)
     }
 }
 
@@ -3282,6 +3380,31 @@ data class InitConfig (
      * instead, since model strings are tied to providers.
      */
     var `defaultModel`: kotlin.String?
+    , 
+    /**
+     * MCP tool-name prefixes whose results SKIP the `LlmContext` taint
+     * (PII/Secret) check before reaching the model. For TRUSTED, identity-
+     * scoped, in-process tools (e.g. the host's own GraphQL surface,
+     * `gql-surface__…`) whose output is ALREADY authorized for the caller
+     * server-side (tenant-scoped, RBAC-enforced) — redacting it would hide
+     * data the user legitimately requested. Matched with `name.starts_with`,
+     * so the `__`-namespaced server prefix cleanly targets one server.
+     * Default empty = scan every tool result (unchanged behavior); only the
+     * prefixes the host explicitly allowlists bypass the sink. External /
+     * untrusted sources (`web_fetch`, third-party MCP) stay scanned.
+     */
+    var `taintExemptToolPrefixes`: List<kotlin.String>
+    , 
+    /**
+     * JSON-encoded [`crate::response_classifier::ClassifierConfig`] for the
+     * response-reliability pipeline (tool-result size gating + archival to
+     * the session workspace). `None` / empty / invalid ⇒ compiled defaults
+     * (feature ON, 25k-token inline cap). A JSON string — not a nested
+     * Record — so new knobs never change the FFI schema; same idiom as
+     * `SendMessageParams.skill_allowed_tools_json`. `{"enabled":false}`
+     * disables the pipeline entirely.
+     */
+    var `responseClassifierConfigJson`: kotlin.String? = null 
     
 ){
     
@@ -3303,6 +3426,8 @@ public object FfiConverterTypeInitConfig: FfiConverterRustBuffer<InitConfig> {
             FfiConverterString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
@@ -3311,7 +3436,9 @@ public object FfiConverterTypeInitConfig: FfiConverterRustBuffer<InitConfig> {
             FfiConverterString.allocationSize(value.`workspacePath`) +
             FfiConverterString.allocationSize(value.`authProfilesPath`) +
             FfiConverterOptionalString.allocationSize(value.`defaultProvider`) +
-            FfiConverterOptionalString.allocationSize(value.`defaultModel`)
+            FfiConverterOptionalString.allocationSize(value.`defaultModel`) +
+            FfiConverterSequenceString.allocationSize(value.`taintExemptToolPrefixes`) +
+            FfiConverterOptionalString.allocationSize(value.`responseClassifierConfigJson`)
     )
 
     override fun write(value: InitConfig, buf: ByteBuffer) {
@@ -3320,6 +3447,8 @@ public object FfiConverterTypeInitConfig: FfiConverterRustBuffer<InitConfig> {
             FfiConverterString.write(value.`authProfilesPath`, buf)
             FfiConverterOptionalString.write(value.`defaultProvider`, buf)
             FfiConverterOptionalString.write(value.`defaultModel`, buf)
+            FfiConverterSequenceString.write(value.`taintExemptToolPrefixes`, buf)
+            FfiConverterOptionalString.write(value.`responseClassifierConfigJson`, buf)
     }
 }
 
@@ -3346,6 +3475,17 @@ data class NativeToolDescriptor (
     var `defaultPermission`: kotlin.String
     , 
     var `defaultEnabled`: kotlin.Boolean
+    , 
+    /**
+     * Debug-only tool: present in the embedded catalog, but surfaced to a
+     * session ONLY when that session asked for the debug tools
+     * (`NativeAgentHandle::set_debug_tools`). `net_probe` is the whole set
+     * today — it deliberately bypasses the egress gate, so it must never be
+     * reachable on a session nobody opened it for. Absent from the JSON
+     * means `false`, and a `false` never serializes back out, so the
+     * ordinary catalog's bytes are unchanged.
+     */
+    var `debugOnly`: kotlin.Boolean
     
 ){
     
@@ -3370,6 +3510,7 @@ public object FfiConverterTypeNativeToolDescriptor: FfiConverterRustBuffer<Nativ
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
         )
     }
 
@@ -3381,7 +3522,8 @@ public object FfiConverterTypeNativeToolDescriptor: FfiConverterRustBuffer<Nativ
             FfiConverterString.allocationSize(value.`groupLabel`) +
             FfiConverterString.allocationSize(value.`category`) +
             FfiConverterString.allocationSize(value.`defaultPermission`) +
-            FfiConverterBoolean.allocationSize(value.`defaultEnabled`)
+            FfiConverterBoolean.allocationSize(value.`defaultEnabled`) +
+            FfiConverterBoolean.allocationSize(value.`debugOnly`)
     )
 
     override fun write(value: NativeToolDescriptor, buf: ByteBuffer) {
@@ -3393,6 +3535,7 @@ public object FfiConverterTypeNativeToolDescriptor: FfiConverterRustBuffer<Nativ
             FfiConverterString.write(value.`category`, buf)
             FfiConverterString.write(value.`defaultPermission`, buf)
             FfiConverterBoolean.write(value.`defaultEnabled`, buf)
+            FfiConverterBoolean.write(value.`debugOnly`, buf)
     }
 }
 
@@ -3450,6 +3593,58 @@ public object FfiConverterTypePendingEvent: FfiConverterRustBuffer<PendingEvent>
 
 
 /**
+ * Optional OpenAI-compatible sampling settings for main agent turns.
+ * Missing fields preserve the caller's defaults; unknown JSON fields are accepted.
+ */
+data class Sampling (
+    var `temperature`: kotlin.Float?
+    , 
+    var `topP`: kotlin.Float?
+    , 
+    var `topK`: kotlin.UInt?
+    , 
+    var `presencePenalty`: kotlin.Float?
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeSampling: FfiConverterRustBuffer<Sampling> {
+    override fun read(buf: ByteBuffer): Sampling {
+        return Sampling(
+            FfiConverterOptionalFloat.read(buf),
+            FfiConverterOptionalFloat.read(buf),
+            FfiConverterOptionalUInt.read(buf),
+            FfiConverterOptionalFloat.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Sampling) = (
+            FfiConverterOptionalFloat.allocationSize(value.`temperature`) +
+            FfiConverterOptionalFloat.allocationSize(value.`topP`) +
+            FfiConverterOptionalUInt.allocationSize(value.`topK`) +
+            FfiConverterOptionalFloat.allocationSize(value.`presencePenalty`)
+    )
+
+    override fun write(value: Sampling, buf: ByteBuffer) {
+            FfiConverterOptionalFloat.write(value.`temperature`, buf)
+            FfiConverterOptionalFloat.write(value.`topP`, buf)
+            FfiConverterOptionalUInt.write(value.`topK`, buf)
+            FfiConverterOptionalFloat.write(value.`presencePenalty`, buf)
+    }
+}
+
+
+
+/**
  * Parameters for sending a message.
  */
 data class SendMessageParams (
@@ -3473,6 +3668,29 @@ data class SendMessageParams (
     var `skillAllowedToolsJson`: kotlin.String?
     , 
     /**
+     * Explicit mission (goal-locked skill) signal for THIS turn.
+     *
+     * Historically the loop INFERRED "this is a mission" from the completion
+     * tool's presence in `skill_allowed_tools_json` — but that list is also
+     * used as a plain-turn VISIBILITY hint (the aigenthive runtime auto-fills
+     * it with every enabled tool), so the two meanings collided and plain
+     * chat turns got mission-nudged. This flag decouples them:
+     * `Some(false)` ⇒ never enforce completion, even if the allow-list
+     * happens to contain the completion tool; `Some(true)` ⇒ enforce
+     * (still gated on the tool actually being reachable); `None` ⇒ legacy
+     * inference from the allow-list (back-compat with older senders).
+     */
+    var `mission`: kotlin.Boolean? = null 
+    , 
+    /**
+     * Host-minted id for THIS dispatch (per-message turn attribution). When
+     * set, the turn's event callback stamps `dispatchId` into every emitted
+     * payload so the wire envelope echoes it back to the host. Per-TURN like
+     * attachments — never inherited by follow-ups.
+     */
+    var `dispatchId`: kotlin.String? = null 
+    , 
+    /**
      * JSON-encoded prior conversation messages for multi-turn sessions.
      */
     var `priorMessagesJson`: kotlin.String?
@@ -3482,6 +3700,60 @@ data class SendMessageParams (
      * session; the persisted store value is authoritative on resume.
      */
     var `planModeInit`: kotlin.Boolean?
+    , 
+    /**
+     * The model's REAL context window (tokens), resolved by the host from its
+     * provider registry for THIS turn's model. Outranks the family table in
+     * `compaction::model_context_limit` (which cannot know a model it was not
+     * written against and used to assume 32k — prod 2026-09-17: kimi matched
+     * nothing, compacted every ~100 KB, ten generations in 14 minutes, each
+     * one erasing what the model had already tried). Clamped like the env
+     * override. `None` ⇒ env override, then the family table.
+     */
+    var `modelContextLimit`: kotlin.UInt? = null 
+    , 
+    /**
+     * Per-turn budget: the most TOOL CALLS this turn may make before the loop
+     * stops calling tools and asks the model for its final answer. `None` ⇒
+     * only the loop guard's global circuit breaker bounds it. Measured on
+     * prod 2026-09-17: nothing ended a turn that called the same blocked tool
+     * thirteen times in a row at four-second intervals.
+     */
+    var `maxToolCalls`: kotlin.UInt? = null 
+    , 
+    /**
+     * Per-turn wall-clock budget in milliseconds. When it elapses the loop
+     * runs ONE more provider call with no tools so the user gets an answer
+     * (what was found, what blocked, what is needed) instead of silence.
+     */
+    var `wallClockMs`: kotlin.ULong? = null 
+    , 
+    /**
+     * Level-triggered plan-mode state for THIS turn (host-authoritative).
+     * `Some(v)` overrides the persisted value and `plan_mode_init`; `None`
+     * keeps the legacy `store || init` semantics. See `wire::AgentCommand::
+     * SendMessage::plan_mode`.
+     */
+    var `planMode`: kotlin.Boolean? = null 
+    , 
+    /**
+     * JSON-encoded `Vec<AttachmentRef>` — files the user attached to THIS turn.
+     *
+     * A JSON string, not a nested Record, so new attachment knobs never change
+     * the FFI schema (same idiom as `skill_allowed_tools_json`).
+     *
+     * Carries POINTERS, never bytes: the host has already written the files to
+     * the session workspace that this pod mounts, so shipping base64 across the
+     * FFI/AMQP boundary would duplicate megabytes that are already on disk.
+     * `None`/empty/invalid ⇒ no attachments (never a hard failure: a malformed
+     * attachment list must not cost the user their message).
+     */
+    var `attachmentsJson`: kotlin.String?
+    , 
+    /**
+     * Host-authorized GoalContract JSON. None resumes any unfinished goal.
+     */
+    var `goalContractJson`: kotlin.String? = null 
     
 ){
     
@@ -3505,8 +3777,16 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterString.read(buf),
             FfiConverterOptionalUInt.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalBoolean.read(buf),
+            FfiConverterOptionalUInt.read(buf),
+            FfiConverterOptionalUInt.read(buf),
+            FfiConverterOptionalULong.read(buf),
+            FfiConverterOptionalBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
@@ -3518,8 +3798,16 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterString.allocationSize(value.`systemPrompt`) +
             FfiConverterOptionalUInt.allocationSize(value.`maxTurns`) +
             FfiConverterOptionalString.allocationSize(value.`skillAllowedToolsJson`) +
+            FfiConverterOptionalBoolean.allocationSize(value.`mission`) +
+            FfiConverterOptionalString.allocationSize(value.`dispatchId`) +
             FfiConverterOptionalString.allocationSize(value.`priorMessagesJson`) +
-            FfiConverterOptionalBoolean.allocationSize(value.`planModeInit`)
+            FfiConverterOptionalBoolean.allocationSize(value.`planModeInit`) +
+            FfiConverterOptionalUInt.allocationSize(value.`modelContextLimit`) +
+            FfiConverterOptionalUInt.allocationSize(value.`maxToolCalls`) +
+            FfiConverterOptionalULong.allocationSize(value.`wallClockMs`) +
+            FfiConverterOptionalBoolean.allocationSize(value.`planMode`) +
+            FfiConverterOptionalString.allocationSize(value.`attachmentsJson`) +
+            FfiConverterOptionalString.allocationSize(value.`goalContractJson`)
     )
 
     override fun write(value: SendMessageParams, buf: ByteBuffer) {
@@ -3530,8 +3818,16 @@ public object FfiConverterTypeSendMessageParams: FfiConverterRustBuffer<SendMess
             FfiConverterString.write(value.`systemPrompt`, buf)
             FfiConverterOptionalUInt.write(value.`maxTurns`, buf)
             FfiConverterOptionalString.write(value.`skillAllowedToolsJson`, buf)
+            FfiConverterOptionalBoolean.write(value.`mission`, buf)
+            FfiConverterOptionalString.write(value.`dispatchId`, buf)
             FfiConverterOptionalString.write(value.`priorMessagesJson`, buf)
             FfiConverterOptionalBoolean.write(value.`planModeInit`, buf)
+            FfiConverterOptionalUInt.write(value.`modelContextLimit`, buf)
+            FfiConverterOptionalUInt.write(value.`maxToolCalls`, buf)
+            FfiConverterOptionalULong.write(value.`wallClockMs`, buf)
+            FfiConverterOptionalBoolean.write(value.`planMode`, buf)
+            FfiConverterOptionalString.write(value.`attachmentsJson`, buf)
+            FfiConverterOptionalString.write(value.`goalContractJson`, buf)
     }
 }
 
@@ -3922,6 +4218,22 @@ public interface GovernanceProvider {
      */
     fun `recordUsage`(`modelId`: kotlin.String, `inputTokens`: kotlin.UInt, `outputTokens`: kotlin.UInt)
     
+    /**
+     * Repair a corrupted LLM message array before it is sent to the provider.
+     *
+     * `messages_json` is a JSON array of Anthropic-shaped messages
+     * (`[{"role","content":[{"type":"tool_use","id"}|{"type":"tool_result","tool_use_id"}|…]}]`).
+     * The host returns the repaired JSON array. Hosts backed by agent-os-core
+     * delegate to `SessionRepairer::repair` (orphan-result drop, synthetic-error
+     * backfill for unmatched tool_use, same-role merge, trailing-incomplete
+     * removal, dedup). A host with no repairer MUST return `messages_json`
+     * unchanged (identity) so the loop's own minimal `sanitize_tool_pairing`
+     * fallback ([db.rs]) remains the floor. On any host-side error the FFI also
+     * falls back to the unmodified input — repair is best-effort and must never
+     * drop the turn.
+     */
+    fun `repairMessages`(`messagesJson`: kotlin.String): kotlin.String
+    
     companion object
 }
 
@@ -4024,6 +4336,18 @@ internal object uniffiCallbackInterfaceGovernanceProvider {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
+    internal object `repairMessages`: UniffiCallbackInterfaceGovernanceProviderMethod7 {
+        override fun callback(`uniffiHandle`: Long,`messagesJson`: RustBuffer.ByValue,`uniffiOutReturn`: RustBuffer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeGovernanceProvider.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`repairMessages`(
+                    FfiConverterString.lift(`messagesJson`),
+                )
+            }
+            val writeReturn = { value: kotlin.String -> uniffiOutReturn.setValue(FfiConverterString.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
 
     internal object uniffiFree: UniffiCallbackInterfaceFree {
         override fun callback(handle: Long) {
@@ -4047,6 +4371,7 @@ internal object uniffiCallbackInterfaceGovernanceProvider {
         `registerTaint`,
         `reset`,
         `recordUsage`,
+        `repairMessages`,
     )
 
     // Registers the foreign callback with the Rust side.
@@ -4364,6 +4689,38 @@ public object FfiConverterOptionalUInt: FfiConverterRustBuffer<kotlin.UInt?> {
 /**
  * @suppress
  */
+public object FfiConverterOptionalULong: FfiConverterRustBuffer<kotlin.ULong?> {
+    override fun read(buf: ByteBuffer): kotlin.ULong? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterULong.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ULong?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterULong.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ULong?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterULong.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
     override fun read(buf: ByteBuffer): kotlin.Long? {
         if (buf.get().toInt() == 0) {
@@ -4386,6 +4743,38 @@ public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
         } else {
             buf.put(1)
             FfiConverterLong.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalFloat: FfiConverterRustBuffer<kotlin.Float?> {
+    override fun read(buf: ByteBuffer): kotlin.Float? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterFloat.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Float?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterFloat.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Float?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterFloat.write(value, buf)
         }
     }
 }
@@ -4450,6 +4839,66 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
         } else {
             buf.put(1)
             FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeSampling: FfiConverterRustBuffer<Sampling?> {
+    override fun read(buf: ByteBuffer): Sampling? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeSampling.read(buf)
+    }
+
+    override fun allocationSize(value: Sampling?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeSampling.allocationSize(value)
+        }
+    }
+
+    override fun write(value: Sampling?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeSampling.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
+    override fun read(buf: ByteBuffer): List<kotlin.String> {
+        val len = buf.getInt()
+        return List<kotlin.String>(len) {
+            FfiConverterString.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.String>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterString.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.String>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterString.write(it, buf)
         }
     }
 }

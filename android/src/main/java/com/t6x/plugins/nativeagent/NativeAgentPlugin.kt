@@ -61,6 +61,9 @@ class NativeAgentPlugin : Plugin() {
                         authProfilesPath = resolvePath(authProfilesPath),
                         defaultProvider = defaultProvider,
                         defaultModel = defaultModel,
+                        // Tool-name prefixes exempt from taint tracking. Empty =
+                        // no exemption (the strictest posture), the default.
+                        taintExemptToolPrefixes = stringList(call, "taintExemptToolPrefixes"),
                     )
                 )
                 call.resolve()
@@ -90,6 +93,7 @@ class NativeAgentPlugin : Plugin() {
                     authProfilesPath = resolvePath(authProfilesPath),
                     defaultProvider = defaultProvider,
                     defaultModel = defaultModel,
+                    taintExemptToolPrefixes = stringList(call, "taintExemptToolPrefixes"),
                 )
                 val h = NativeAgentHandle(config)
                 h.setEventCallback(object : NativeEventCallback {
@@ -151,6 +155,8 @@ class NativeAgentPlugin : Plugin() {
             // Create-only plan-mode seed; null preserves prior behavior (the
             // persisted store value is authoritative on resume).
             planModeInit = if (call.hasOption("planModeInit")) call.getBoolean("planModeInit") else null,
+            // Attachment descriptors for this turn (JSON); null = none, as before.
+            attachmentsJson = call.getString("attachmentsJson"),
         )
         val runId = h.sendMessage(params)
         android.util.Log.i("TRACE:kt", "sendMessage OK runId=$runId")
@@ -241,6 +247,9 @@ class NativeAgentPlugin : Plugin() {
             if (call.hasOption("expiresAt")) call.getLong("expiresAt") else null,
             // Optional endpoint override (e.g. a backend proxy holding the real key).
             call.getString("baseUrl"),
+            // Wire format of that endpoint ("anthropic" | "openai"); null = the
+            // provider's own. The platform LLM bridge serves both.
+            call.getString("apiFormat"),
         )
         call.resolve()
     }
@@ -563,5 +572,11 @@ class NativeAgentPlugin : Plugin() {
         val workspace = java.io.File(workspacePath)
         val parent = workspace.parentFile ?: workspace
         return java.io.File(parent, ".native-agent-config.json").absolutePath
+    }
+
+    /** A JS string[] option as a Kotlin list (absent or malformed = empty). */
+    private fun stringList(call: PluginCall, key: String): List<String> {
+        val arr = call.getArray(key) ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { idx -> arr.optString(idx, null) }
     }
 }

@@ -26,6 +26,11 @@ export interface InitConfig {
      * used instead, since model strings are tied to providers.
      */
     defaultModel?: string;
+    /**
+     * Tool-name prefixes exempt from taint tracking (native-agent-ffi >= 0.1.6).
+     * Omitted or empty = no exemption, the strictest posture.
+     */
+    taintExemptToolPrefixes?: string[];
 }
 export interface SendMessageParams {
     prompt: string;
@@ -44,6 +49,8 @@ export interface SendMessageParams {
     extraToolsJson?: string;
     /** JSON-encoded prior conversation messages for multi-turn skill sessions */
     priorMessagesJson?: string;
+    /** Attachment descriptors for this turn, as JSON (native-agent-ffi >= 0.1.6). */
+    attachmentsJson?: string;
 }
 export interface AuthTokenResult {
     apiKey: string | null;
@@ -212,6 +219,11 @@ export interface NativeAgentPlugin {
     getAuthToken(options: {
         provider: string;
     }): Promise<AuthTokenResult>;
+    /**
+     * `baseUrl` points the provider at another endpoint (e.g. a platform LLM bridge
+     * that holds the real key); `apiFormat` ("anthropic" | "openai") is that
+     * endpoint's wire format (native-agent-ffi >= 0.1.6).
+     */
     setAuthKey(options: {
         key: string;
         provider: string;
@@ -219,6 +231,7 @@ export interface NativeAgentPlugin {
         refresh?: string;
         expiresAt?: number;
         baseUrl?: string;
+        apiFormat?: string;
     }): Promise<void>;
     deleteAuth(options: {
         provider: string;
